@@ -298,6 +298,7 @@ export function useGlobalSettings() {
     startDate: "2026-05-20",
     currency: "$"
   });
+  const [finesPaid, setFinesPaid] = useState({});
   const [offline, setOffline] = useState(false);
 
   const load = useCallback(async () => {
@@ -305,18 +306,26 @@ export function useGlobalSettings() {
     try {
       const { data, error } = await supabase
         .from("global_settings")
-        .select("*")
-        .eq("key", "fine-settings")
-        .maybeSingle();
+        .select("*");
       if (error) throw error;
-      if (data && data.value) {
-        setSettings(data.value);
-        saveJson("meow:fine-settings:v1", data.value);
+      
+      const settingsRow = data?.find(r => r.key === "fine-settings");
+      if (settingsRow && settingsRow.value) {
+        setSettings(settingsRow.value);
+        saveJson("meow:fine-settings:v1", settingsRow.value);
+      }
+      
+      const paidRow = data?.find(r => r.key === "fines-paid");
+      if (paidRow && paidRow.value) {
+        setFinesPaid(paidRow.value);
+        saveJson("meow:fines-paid:v1", paidRow.value);
       }
     } catch (err) {
       setOffline(true);
-      const local = loadJson("meow:fine-settings:v1", null);
-      if (local) setSettings(local);
+      const localS = loadJson("meow:fine-settings:v1", null);
+      if (localS) setSettings(localS);
+      const localP = loadJson("meow:fines-paid:v1", null);
+      if (localP) setFinesPaid(localP || {});
     }
   }, []);
 
@@ -342,5 +351,17 @@ export function useGlobalSettings() {
     }
   };
 
-  return { settings, updateSettings, offline, reloadSettings: load };
+  const updateFinesPaid = async (nextPaid) => {
+    setFinesPaid(nextPaid);
+    saveJson("meow:fines-paid:v1", nextPaid);
+
+    if (supabaseConfigured) {
+      const { error } = await supabase
+        .from("global_settings")
+        .upsert({ key: "fines-paid", value: nextPaid }, { onConflict: "key" });
+      if (error) throw error;
+    }
+  };
+
+  return { settings, updateSettings, finesPaid, updateFinesPaid, offline, reloadSettings: load };
 }

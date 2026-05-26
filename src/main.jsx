@@ -908,7 +908,7 @@ function MoneyJar({ total }) {
   );
 }
 
-function MoneyBasket({ friends, logs, isAuth, isAdmin, toast, settings: propSettings, updateSettings: propUpdateSettings }) {
+function MoneyBasket({ friends, logs, isAuth, isAdmin, toast, settings: propSettings, updateSettings: propUpdateSettings, finesPaid: propFinesPaid, updateFinesPaid: propUpdateFinesPaid }) {
   const [localSettings, setLocalSettings] = useState(() => {
     return loadJson("meow:fine-settings:v1", {
       finePerMiss: 5,
@@ -926,36 +926,33 @@ function MoneyBasket({ friends, logs, isAuth, isAdmin, toast, settings: propSett
     });
   });
 
-  const [finesPaid, setFinesPaid] = useState(() => {
+  const [localFinesPaid, setLocalFinesPaid] = useState(() => {
     return loadJson("meow:fines-paid:v1", {});
+  });
+
+  const finesPaid = propFinesPaid || localFinesPaid;
+  const updateFinesPaid = propUpdateFinesPaid || ((nextPaid) => {
+    setLocalFinesPaid(nextPaid);
+    saveJson("meow:fines-paid:v1", nextPaid);
   });
 
   const [showSettings, setShowSettings] = useState(false);
 
   const recordPayment = (friendId, amount) => {
-    setFinesPaid((prev) => {
-      const next = { ...prev, [friendId]: (prev[friendId] || 0) + amount };
-      saveJson("meow:fines-paid:v1", next);
-      return next;
-    });
+    const next = { ...finesPaid, [friendId]: (finesPaid[friendId] || 0) + amount };
+    updateFinesPaid(next);
     toast("Payment recorded!");
   };
 
   const clearBalance = (friendId, totalDue) => {
-    setFinesPaid((prev) => {
-      const next = { ...prev, [friendId]: totalDue };
-      saveJson("meow:fines-paid:v1", next);
-      return next;
-    });
+    const next = { ...finesPaid, [friendId]: totalDue };
+    updateFinesPaid(next);
     toast("Outstanding fines marked as paid!");
   };
 
   const resetPayments = (friendId) => {
-    setFinesPaid((prev) => {
-      const next = { ...prev, [friendId]: 0 };
-      saveJson("meow:fines-paid:v1", next);
-      return next;
-    });
+    const next = { ...finesPaid, [friendId]: 0 };
+    updateFinesPaid(next);
     toast("Payments history reset!");
   };
 
@@ -2009,7 +2006,7 @@ function App() {
   const { updateGoal } = useGoals(auth.user || {});
   const { sharedGoals, addSharedGoal, updateSharedGoal, deleteSharedGoal, offline: sharedGoalsOffline } = useSharedGoals(auth.session, auth.user || {});
   const { stats, realtimeStatus } = useStats(friends, logs);
-  const { settings, updateSettings } = useGlobalSettings();
+  const { settings, updateSettings, finesPaid, updateFinesPaid } = useGlobalSettings();
   const [activeId, setActiveId] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
@@ -2105,7 +2102,7 @@ function App() {
           {!auth.session && (
             <>
               {/* Fines Basket Total Pool (Only pool card is shown when logged out) */}
-              <MoneyBasket friends={hydratedStats} logs={logs} isAuth={false} isAdmin={false} toast={toastNow} settings={settings} updateSettings={updateSettings} />
+              <MoneyBasket friends={hydratedStats} logs={logs} isAuth={false} isAdmin={false} toast={toastNow} settings={settings} updateSettings={updateSettings} finesPaid={finesPaid} updateFinesPaid={updateFinesPaid} />
 
               {/* Goal Progress Bars (full width card) */}
               <GoalProgressCard friends={hydratedStats} />
@@ -2118,7 +2115,7 @@ function App() {
           {auth.session && (
             <>
               {/* 1. Fine Money Basket (Common) */}
-              <MoneyBasket friends={hydratedStats} logs={logs} isAuth={Boolean(auth.session)} isAdmin={auth.isAdmin} toast={toastNow} settings={settings} updateSettings={updateSettings} />
+              <MoneyBasket friends={hydratedStats} logs={logs} isAuth={Boolean(auth.session)} isAdmin={auth.isAdmin} toast={toastNow} settings={settings} updateSettings={updateSettings} finesPaid={finesPaid} updateFinesPaid={updateFinesPaid} />
 
               {/* 2. Shared Challenges (Common) */}
               <SharedGoalsPanel sharedGoals={sharedGoals} addSharedGoal={addSharedGoal} updateSharedGoal={updateSharedGoal} deleteSharedGoal={deleteSharedGoal} friends={hydratedStats} toast={toastNow} offline={sharedGoalsOffline} isAuth={Boolean(auth.session)} isAdmin={auth.isAdmin} />

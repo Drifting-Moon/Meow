@@ -167,7 +167,8 @@ create policy "anyone can insert or update global settings" on public.global_set
   for all to anon, authenticated using (true) with check (true);
 
 insert into public.global_settings (key, value) values
-  ('fine-settings', '{"finePerMiss": 5, "startDate": "2026-05-20", "currency": "$"}')
+  ('fine-settings', '{"finePerMiss": 5, "startDate": "2026-05-20", "currency": "$"}'),
+  ('fines-paid', '{}')
 on conflict (key) do nothing;
 
 
