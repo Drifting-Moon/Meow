@@ -850,14 +850,12 @@ function App() {
       <TodayStrip friends={hydratedStats} realtimeStatus={realtimeStatus} />
       <Hero friends={hydratedStats} activeId={activeId} setActiveId={setActiveId} />
       <QuickOptions openSettings={() => setSettingsOpen(true)} openLog={() => setLogOpen(true)} />
-      <SharedGoalsPanel sharedGoals={sharedGoals} addSharedGoal={addSharedGoal} updateSharedGoal={updateSharedGoal} deleteSharedGoal={deleteSharedGoal} friends={hydratedStats} toast={toastNow} offline={sharedGoalsOffline} />
       <ActivityFeed logs={logs} friends={hydratedStats} toast={toastNow} />
       <ProfilesPanel friends={hydratedStats} activeId={activeId} setActiveId={setActiveId} openSettings={() => setSettingsOpen(true)} />
       {activeFriend && <PersonalStats friend={activeFriend} friends={hydratedStats} />}
       <Heatmap friends={hydratedStats} activeId={activeId} />
       {activeFriend && <Analytics friends={hydratedStats} />}
       <BattleMode friends={hydratedStats} />
-      {activeFriend && <Badges friend={activeFriend} friends={hydratedStats} />}
     </div>
     <button className="fab" onClick={() => setLogOpen(true)}><Plus /><span>Log</span></button>
     <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} profile={auth.profile} auth={auth} reloadFriends={reloadFriends} toast={toastNow} />
