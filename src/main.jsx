@@ -130,7 +130,7 @@ function calculateEstimatedDoneDate(friend, startDateStr = "2026-05-20") {
   };
 }
 
-function GoalProgressCard({ friends }) {
+function GoalProgressCard({ friends, startDate }) {
   return (
     <CardSpotlight className="panel" style={{ padding: "20px", marginTop: "18px", width: "100%" }}>
       <div className="section-head" style={{ marginBottom: "16px" }}>
@@ -143,7 +143,7 @@ function GoalProgressCard({ friends }) {
 
       <div style={{ display: "grid", gap: "16px" }}>
         {friends.map((friend) => {
-          const { estString, paceStatus, paceColor } = calculateEstimatedDoneDate(friend);
+          const { estString, paceStatus, paceColor } = calculateEstimatedDoneDate(friend, startDate);
           const solved = friend.totalSolved || 0;
           const target = friend.longGoal || 300;
           const pct = Math.round((solved / Math.max(1, target)) * 100);
@@ -2262,7 +2262,7 @@ function App() {
               <MoneyBasket friends={hydratedStats} logs={logs} isAuth={false} isAdmin={false} toast={toastNow} settings={settings} updateSettings={updateSettings} finesPaid={finesPaid} updateFinesPaid={updateFinesPaid} />
 
               {/* Goal Progress Bars (full width card) */}
-              <GoalProgressCard friends={hydratedStats} />
+              <GoalProgressCard friends={hydratedStats} startDate={settings.startDate} />
 
               {/* All contestants heatmaps displayed together for public view */}
               <Heatmap friends={hydratedStats} daysToShow={daysToShow} />

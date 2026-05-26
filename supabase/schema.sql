@@ -155,9 +155,9 @@ drop policy if exists anyone_can_read_admins on public.admins;
 create policy anyone_can_read_admins on public.admins
   for select to anon, authenticated using (true);
 
--- Populate a default admin so Jayant is admin by default
+-- Populate a default admin
 insert into public.admins (email, note) values
-  ('jayant@gmail.com', 'Primary admin account')
+  ('admin@gmail.com', 'System admin account')
 on conflict (email) do nothing;
 
 -- global_settings table for syncing config (currency, start date, fines etc.)
