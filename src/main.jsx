@@ -8,6 +8,8 @@ import {
   Check,
   ChevronDown,
   Clock,
+  Coins,
+  DollarSign,
   Flame,
   GitGraph,
   Lock,
@@ -21,6 +23,7 @@ import {
   Target,
   Trash2,
   Trophy,
+  User,
   X,
   Zap
 } from "lucide-react";
@@ -57,17 +60,6 @@ const DIFFICULTIES = {
   medium: { label: "Medium", color: "#f59e0b" },
   hard: { label: "Hard", color: "#ef4444" }
 };
-const BADGES = [
-  { id: "first", name: "First Solve", icon: Check, test: (f) => f.totalSolved > 0 },
-  { id: "three", name: "3-Day Streak", icon: Flame, test: (f) => f.streak >= 3 },
-  { id: "seven", name: "7-Day Warrior", icon: Zap, test: (f) => f.streak >= 7 },
-  { id: "thirty", name: "30-Day Streak", icon: Shield, test: (f) => f.streak >= 30 },
-  { id: "hard10", name: "10 Hards Solved", icon: Swords, test: (f) => f.hard >= 10 },
-  { id: "fifty", name: "50 Total", icon: Medal, test: (f) => f.totalSolved >= 50 },
-  { id: "century", name: "Century Club", icon: Trophy, test: (f) => f.totalSolved >= 100 },
-  { id: "week", name: "Top of Week", icon: Award, test: (f, friends) => weekTotal(f) === Math.max(...friends.map(weekTotal)) && f.totalSolved > 0 }
-];
-
 function heatmapArray(friend, days = 365) {
   return Array.from({ length: days }, (_, i) => {
     const key = todayKey(i - days + 1);
@@ -86,6 +78,104 @@ function weekTotal(friend) {
 
 function rankFriends(friends) {
   return [...friends].sort((a, b) => Number(b.isYou) - Number(a.isYou) || b.totalSolved - a.totalSolved);
+}
+
+function calculateEstimatedDoneDate(friend, startDateStr = "2026-05-20") {
+  const start = new Date(startDateStr);
+  start.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const diffTime = Math.abs(today - start);
+  const daysPassed = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+  
+  const solved = friend.totalSolved || 0;
+  const target = friend.longGoal || 300;
+  
+  if (solved >= target) {
+    return { estString: "Completed! 🎉", paceStatus: "🚀 Ahead of schedule", paceColor: "var(--green)" };
+  }
+
+  const dailyPace = solved / daysPassed;
+  const expectedSolved = (friend.dailyGoal || 2) * daysPassed;
+  let paceStatus = "";
+  let paceColor = "";
+  
+  if (solved >= expectedSolved) {
+    paceStatus = "🚀 Ahead of schedule";
+    paceColor = "var(--green)";
+  } else {
+    const behind = expectedSolved - solved;
+    paceStatus = `⚠️ ${behind} problems behind pace`;
+    paceColor = "#f59e0b";
+  }
+
+  if (dailyPace <= 0) {
+    return { estString: "Est. done: Never (no daily solves)", paceStatus, paceColor };
+  }
+
+  const remaining = target - solved;
+  const daysNeeded = Math.ceil(remaining / dailyPace);
+  
+  const estDate = new Date();
+  estDate.setDate(estDate.getDate() + daysNeeded);
+  
+  const options = { month: "short", year: "numeric" };
+  const formattedDate = estDate.toLocaleDateString("en-US", options);
+  
+  return {
+    estString: `Est. done: ${formattedDate}`,
+    paceStatus,
+    paceColor
+  };
+}
+
+function GoalProgressCard({ friends }) {
+  return (
+    <CardSpotlight className="panel" style={{ padding: "20px", marginTop: "18px", width: "100%" }}>
+      <div className="section-head" style={{ marginBottom: "16px" }}>
+        <div>
+          <h2 style={{ fontSize: "16px", fontWeight: "800", margin: 0 }}>Long-Term Goal Progress</h2>
+          <p className="muted" style={{ fontSize: "12px", margin: "4px 0 0 0" }}>Contestants progress toward their long-term target and pace projections.</p>
+        </div>
+        <Target size={18} />
+      </div>
+
+      <div style={{ display: "grid", gap: "16px" }}>
+        {friends.map((friend) => {
+          const { estString, paceStatus, paceColor } = calculateEstimatedDoneDate(friend);
+          const solved = friend.totalSolved || 0;
+          const target = friend.longGoal || 300;
+          const pct = Math.round((solved / Math.max(1, target)) * 100);
+
+          return (
+            <div key={friend.id} style={{ display: "grid", gap: "8px", border: "1px solid var(--line)", padding: "14px", borderRadius: "14px", background: "rgba(2, 6, 23, 0.4)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  <span className="mini-avatar" style={{ "--tag": friend.color, width: "24px", height: "24px", fontSize: "11px" }}>{friend.initials}</span>
+                  <b style={{ color: friend.color, fontSize: "13px" }}>{friend.name}</b>
+                </div>
+                
+                <div style={{ display: "flex", gap: "12px", alignItems: "center", fontSize: "12px", flexWrap: "wrap" }}>
+                  <span className="muted">{solved} / {target} problems ({pct}%)</span>
+                  <span className="muted">•</span>
+                  <span className="muted" style={{ fontWeight: "600" }}>{estString}</span>
+                  <span className="muted">•</span>
+                  <span style={{ color: paceColor, fontWeight: "700", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                    {paceStatus}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ height: "10px", background: "#111827", border: "1px solid rgba(148,163,184,.12)", borderRadius: "999px", overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${Math.min(100, pct)}%`, background: friend.color, borderRadius: "inherit", transition: "width 1s ease" }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </CardSpotlight>
+  );
 }
 
 function AnimatedCounter({ value, suffix = "", className = "" }) {
@@ -174,7 +264,7 @@ function normalizeLoginShortcuts(saved) {
   });
 }
 
-function LoginPage({ auth }) {
+function LoginModal({ open, onClose, auth }) {
   const [shortcuts, setShortcuts] = useState(() => {
     const next = normalizeLoginShortcuts(loadJson(LOGIN_SHORTCUTS_KEY, DEFAULT_LOGIN_SHORTCUTS));
     saveJson(LOGIN_SHORTCUTS_KEY, next);
@@ -186,7 +276,6 @@ function LoginPage({ auth }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Fetch shortcuts from Supabase on mount
   useEffect(() => {
     if (!auth.supabaseConfigured) return;
     const fetchShortcuts = async () => {
@@ -214,7 +303,6 @@ function LoginPage({ auth }) {
     fetchShortcuts();
   }, [auth.supabaseConfigured]);
 
-  // Keep form fields reactive when shortcuts update or selection changes
   useEffect(() => {
     const active = shortcuts[selected];
     if (active) {
@@ -231,23 +319,18 @@ function LoginPage({ auth }) {
   };
 
   const updateShortcut = async (index, patch) => {
-    // 1. Update local state immediately for lag-free typing
     setShortcuts((prev) => {
       const next = prev.map((item, i) => i === index ? { ...item, ...patch } : item);
       saveJson(LOGIN_SHORTCUTS_KEY, next);
       return next;
     });
 
-    // 2. Persist to Supabase if configured
     if (auth.supabaseConfigured) {
       try {
-        const { error: updateErr } = await supabase
+        await supabase
           .from("login_shortcuts")
           .update(patch)
           .eq("id", index);
-        if (updateErr) {
-          console.warn("Supabase update error:", updateErr);
-        }
       } catch (err) {
         console.warn("Failed to save shortcut to Supabase:", err);
       }
@@ -262,6 +345,20 @@ function LoginPage({ auth }) {
     setLoading(true);
     try {
       await auth.login(friend.email, friend.password || friend.name);
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loginAdminDirectly = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      await auth.login("admin@gmail.com", "admin");
+      onClose();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -276,47 +373,91 @@ function LoginPage({ auth }) {
     setLoading(true);
     try {
       await auth.login(form.email, form.password);
+      onClose();
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
   };
-  return <main>
-    <BackgroundBeams />
-    <SparklesCore />
-    <div className="auth-page">
-      <Spotlight className="auth-card">
-        <div className="eyebrow"><Sparkles size={15} /> Meow</div>
-        <h1>Pick your profile</h1>
-        <p>A private dashboard to track daily problem solved counts, view consistency heatmaps, and compare weekly stats in a shared space.</p>
-        {!auth.supabaseConfigured && <div className="offline-banner">Supabase env vars are missing. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to `.env`.</div>}
-        <div className="login-shortcuts">
-          {shortcuts.map((friend, index) => <button type="button" key={index} onClick={() => loginShortcut(index)} onFocus={() => selectFriend(index)} className={`login-shortcut ${selected === index ? "active" : ""}`} style={{ "--tag": friend.color }} disabled={loading || !auth.supabaseConfigured}>
-            <span className="mini-avatar" style={{ "--tag": friend.color }}>{initials(friend.name)}</span>
-            <b>{friend.name || `Friend ${index + 1}`}</b>
-            <small>{friend.email || "Add email"}</small>
-            <em>Click to login</em>
-          </button>)}
-        </div>
-        <form onSubmit={submit} className="auth-form">
-          <label>Email<input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="you@example.com" /></label>
-          <label>Password<input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="••••••••" /></label>
-          {error && <p className="error-text">{error}</p>}
-          <button className="primary" disabled={loading || !auth.supabaseConfigured}>{loading ? "Opening..." : `Login as ${shortcuts[selected]?.name || "friend"}`}</button>
-          <button className="secondary" type="button" onClick={() => setEditingShortcuts((v) => !v)}>{editingShortcuts ? "Done editing cards" : "Edit friend cards"}</button>
-        </form>
-        {editingShortcuts && <div className="shortcut-editor">
-          {shortcuts.map((friend, index) => <CardSpotlight key={index} className="shortcut-editor-card">
-            <label>Name<input value={friend.name} onChange={(e) => updateShortcut(index, { name: e.target.value })} /></label>
-            <label>Email<input type="email" value={friend.email} onChange={(e) => updateShortcut(index, { email: e.target.value })} /></label>
-            <label>Password<input type="text" value={friend.password || ""} onChange={(e) => updateShortcut(index, { password: e.target.value })} /></label>
-            <label>Color<input type="color" value={friend.color} onChange={(e) => updateShortcut(index, { color: e.target.value })} /></label>
-          </CardSpotlight>)}
-        </div>}
-      </Spotlight>
-    </div>
-  </main>;
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div className="drawer-backdrop modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.div className="log-modal auth-modal" initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 30, opacity: 0 }}>
+            <div className="section-head">
+              <div>
+                <h2>Pick your profile</h2>
+                <p>Unlock manual logging and edit your custom tags.</p>
+              </div>
+              <button type="button" className="icon-btn" onClick={onClose}><X /></button>
+            </div>
+
+            {!auth.supabaseConfigured && (
+              <div className="offline-banner">Supabase env vars are missing. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env.</div>
+            )}
+
+            <div className="login-shortcuts" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", margin: "14px 0" }}>
+              {shortcuts.map((friend, index) => (
+                <button
+                  type="button"
+                  key={index}
+                  onClick={() => loginShortcut(index)}
+                  onFocus={() => selectFriend(index)}
+                  className={`login-shortcut ${selected === index ? "active" : ""}`}
+                  style={{ "--tag": friend.color, background: "rgba(2, 6, 23, 0.4)", border: selected === index ? `1px solid ${friend.color}` : "1px solid var(--line)" }}
+                  disabled={loading || !auth.supabaseConfigured}
+                >
+                  <span className="mini-avatar" style={{ "--tag": friend.color }}>{initials(friend.name)}</span>
+                  <b>{friend.name || `Friend ${index + 1}`}</b>
+                  <small style={{ fontSize: "10px", opacity: 0.6 }}>{friend.email || "Add email"}</small>
+                  <em>Click to login</em>
+                </button>
+              ))}
+            </div>
+
+            <div style={{ margin: "16px 0", borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)", padding: "12px 0", display: "flex", flexDirection: "column", gap: "8px" }}>
+              <button
+                type="button"
+                className="secondary"
+                onClick={loginAdminDirectly}
+                disabled={loading || !auth.supabaseConfigured}
+                style={{ width: "100%", height: "38px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: "rgba(239, 68, 68, 0.08)", borderColor: "rgba(239, 68, 68, 0.2)", color: "#fca5a5" }}
+              >
+                <Shield size={14} /> Access System Admin Portal
+              </button>
+            </div>
+
+            <form onSubmit={submit} className="auth-form" style={{ display: "grid", gap: "12px" }}>
+              <label>Email<input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="you@example.com" /></label>
+              <label>Password<input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="••••••••" /></label>
+              {error && <p className="error-text">{error}</p>}
+              <button className="primary" disabled={loading || !auth.supabaseConfigured} style={{ height: "40px" }}>{loading ? "Opening..." : `Login as ${shortcuts[selected]?.name || "friend"}`}</button>
+              <button className="secondary" type="button" onClick={() => setEditingShortcuts((v) => !v)} style={{ height: "36px" }}>{editingShortcuts ? "Done editing cards" : "Edit friend cards"}</button>
+            </form>
+
+            {editingShortcuts && (
+              <div className="shortcut-editor" style={{ display: "grid", gap: "10px", marginTop: "14px", maxHeight: "180px", overflowY: "auto", paddingRight: "4px" }}>
+                {shortcuts.map((friend, index) => (
+                  <CardSpotlight key={index} className="shortcut-editor-card" style={{ padding: "10px" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                      <label>Name<input value={friend.name} onChange={(e) => updateShortcut(index, { name: e.target.value })} /></label>
+                      <label>Email<input type="email" value={friend.email} onChange={(e) => updateShortcut(index, { email: e.target.value })} /></label>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "6px" }}>
+                      <label>Password<input type="text" value={friend.password || ""} onChange={(e) => updateShortcut(index, { password: e.target.value })} /></label>
+                      <label>Color<input type="color" value={friend.color} onChange={(e) => updateShortcut(index, { color: e.target.value })} /></label>
+                    </div>
+                  </CardSpotlight>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 }
 
 function TodayStrip({ friends, realtimeStatus }) {
@@ -361,7 +502,148 @@ function StatCard({ icon: Icon, label, value, suffix = "", accent, detail, loadi
   </CardSpotlight>;
 }
 
-function PersonalStats({ friend, friends }) {
+function WeeklySummaryCard({ friend, logs }) {
+  const today = new Date();
+  const dayOfWeek = today.getDay(); 
+  const daysPassedThisWeek = dayOfWeek === 0 ? 7 : dayOfWeek; 
+  
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const offset = i - (daysPassedThisWeek - 1);
+    const d = new Date(today);
+    d.setDate(today.getDate() + offset);
+    return d.toISOString().slice(0, 10);
+  });
+
+  const friendLogs = logs.filter((log) => log.user_id === friend.id);
+  const dailyCounts = weekDays.map((dateStr) => {
+    const logForDay = friendLogs.filter((log) => log.log_date === dateStr);
+    return logForDay.reduce((sum, log) => sum + Number(log.count || 0), 0);
+  });
+
+  const weeklyTotal = dailyCounts.slice(0, daysPassedThisWeek).reduce((sum, count) => sum + count, 0);
+  
+  const dailyGoal = friend.dailyGoal || 2;
+  const weeklyTarget = dailyGoal * daysPassedThisWeek;
+
+  let badgeText = "";
+  let badgeColor = "";
+  let badgeBackground = "";
+
+  let missedAnyDay = false;
+  for (let i = 0; i < daysPassedThisWeek; i++) {
+    if (dailyCounts[i] < dailyGoal) {
+      missedAnyDay = true;
+      break;
+    }
+  }
+
+  if (weeklyTotal >= weeklyTarget && !missedAnyDay) {
+    badgeText = "On Track";
+    badgeColor = "#86efac"; 
+    badgeBackground = "rgba(34,197,94,0.1)";
+  } else if (missedAnyDay) {
+    badgeText = "Missed Days";
+    badgeColor = "#fca5a5"; 
+    badgeBackground = "rgba(239,68,68,0.1)";
+  } else {
+    badgeText = "Behind";
+    badgeColor = "#fde047"; 
+    badgeBackground = "rgba(245,158,11,0.1)";
+  }
+
+  const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  let bestDayIndex = 0;
+  let maxSolved = 0;
+  for (let i = 0; i < daysPassedThisWeek; i++) {
+    if (dailyCounts[i] > maxSolved) {
+      maxSolved = dailyCounts[i];
+      bestDayIndex = i;
+    }
+  }
+
+  const bestDayLabel = maxSolved > 0 
+    ? `Your best day: ${["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][bestDayIndex]}`
+    : "No solves yet this week";
+
+  return (
+    <CardSpotlight className="span-3" style={{ padding: "20px", display: "grid", gap: "10px" }}>
+      <div className="stat-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <Award size={18} style={{ color: friend.color }} />
+          <span>Weekly Summary</span>
+        </div>
+        <span 
+          className="status-pill loaded" 
+          style={{ 
+            margin: 0, 
+            fontSize: "11px", 
+            fontWeight: "700", 
+            background: badgeBackground, 
+            color: badgeColor, 
+            borderColor: badgeColor + "33" 
+          }}
+        >
+          {badgeText}
+        </span>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", borderBottom: "1px dashed var(--line)", paddingBottom: "6px" }}>
+        <strong style={{ fontSize: "28px", fontWeight: "800", fontFamily: "Geist Mono, monospace" }}>
+          {weeklyTotal}
+        </strong>
+        <span className="muted" style={{ fontSize: "11px" }}>solved this week</span>
+      </div>
+
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", color: "var(--muted)", marginBottom: "4px" }}>
+          {dayNames.map((name) => <span key={name} style={{ width: "24px", textAlign: "center" }}>{name}</span>)}
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
+          {dailyCounts.map((count, index) => {
+            const hasSolved = count > 0;
+            const isCompleted = count >= dailyGoal;
+            let cellBg = "rgba(255,255,255,0.03)";
+            let cellBorder = "1px solid var(--line)";
+            
+            if (index < daysPassedThisWeek) {
+              if (isCompleted) {
+                cellBg = friend.color;
+                cellBorder = `1px solid ${friend.color}`;
+              } else if (hasSolved) {
+                cellBg = friend.color + "55"; 
+                cellBorder = `1px solid ${friend.color}88`;
+              } else {
+                cellBg = "rgba(239, 68, 68, 0.08)";
+                cellBorder = "1px solid rgba(239, 68, 68, 0.2)";
+              }
+            }
+
+            return (
+              <div 
+                key={index} 
+                title={`${dayNames[index]}: ${count} problems`} 
+                style={{ 
+                  width: "24px", 
+                  height: "24px", 
+                  borderRadius: "6px", 
+                  background: cellBg, 
+                  border: cellBorder,
+                  transition: "all 0.2s ease" 
+                }} 
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      <p className="muted" style={{ fontSize: "11px", fontStyle: "italic", margin: "4px 0 0 0", textAlign: "center", color: maxSolved > 0 ? "var(--green)" : "var(--muted)" }}>
+        {bestDayLabel}
+      </p>
+    </CardSpotlight>
+  );
+}
+
+function PersonalStats({ friend, friends, logs }) {
   const rank = rankFriends(friends).findIndex((f) => f.id === friend.id) + 1;
   const pie = ["easy", "medium", "hard"].map((k) => ({ name: DIFFICULTIES[k].label, value: friend[k], color: DIFFICULTIES[k].color }));
   return <BentoGrid>
@@ -381,13 +663,11 @@ function PersonalStats({ friend, friends }) {
       <div className="goal-row"><AnimatedCounter value={friend.todaySolved} className="goal-big" /><span>today</span></div>
       <p className="muted">Add easy, medium, and hard counts from the Log button. Everything on this dashboard comes from those entries.</p>
     </CardSpotlight>
+    <WeeklySummaryCard friend={friend} logs={logs} />
   </BentoGrid>;
 }
 
-function Heatmap({ friends, activeId, daysToShow }) {
-  const [mode, setMode] = useState("single");
-  const shown = mode === "single" ? friends.filter((f) => f.id === activeId) : friends;
-  
+function Heatmap({ friends, daysToShow, singleFriend }) {
   const weeksCount = daysToShow / 7;
   const monthHeaders = [];
   let lastMonth = "";
@@ -403,13 +683,14 @@ function Heatmap({ friends, activeId, daysToShow }) {
     }
   }
 
+  const displayFriends = singleFriend ? [singleFriend] : friends;
+
   return <section className="panel">
     <div className="section-head">
       <div><h2>Activity Heatmap</h2><p>Manual problem logs since your first activity.</p></div>
-      <div className="toolbar-pair"><div className="segmented"><button className={mode === "single" ? "active" : ""} onClick={() => setMode("single")}>Single</button><button className={mode === "all" ? "active" : ""} onClick={() => setMode("all")}>All Friends</button></div></div>
     </div>
-    <div className={`heatmap-stack ${mode}`}>
-      {shown.map((friend) => {
+    <div className="heatmap-stack all">
+      {displayFriends.map((friend) => {
         const days = heatmapArray(friend, daysToShow);
         return <div className="heatmap-card" key={friend.id}>
           <div className="heatmap-title"><b style={{ color: friend.color }}>{friend.isYou ? "You" : friend.name}</b><span>Manual logs</span></div>
@@ -430,7 +711,7 @@ function Heatmap({ friends, activeId, daysToShow }) {
 
 function chartSeries(friends, days = 30) {
   const points = [];
-  const step = days > 90 ? 7 : days > 35 ? 3 : 1; 
+  const step = days > 90 ? 7 : days > 35 ? 3 : 1;
   for (let i = days - 1; i >= 0; i -= step) {
     const key = todayKey(-i);
     const point = { date: formatDay(key) };
@@ -509,13 +790,463 @@ function groupHeatmap(logs, days = 365) {
   };
 }
 
-function SharedGoalsPanel({ sharedGoals, addSharedGoal, updateSharedGoal, deleteSharedGoal, friends, toast, offline }) {
+function calculateFines(friends, logs, finePerMiss = 5, startDateStr = "2026-05-20") {
+  const start = new Date(startDateStr);
+  start.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const completedDates = [];
+  let current = new Date(start);
+  while (current < today) {
+    completedDates.push(current.toISOString().slice(0, 10));
+    current.setDate(current.getDate() + 1);
+  }
+
+  const breakdown = friends.map((f) => {
+    const friendLogs = logs.filter((log) => log.user_id === f.id);
+    const heatmap = {};
+    friendLogs.forEach((log) => {
+      heatmap[log.log_date] = (heatmap[log.log_date] || 0) + Number(log.count || 0);
+    });
+
+    let missedDays = 0;
+    const dailyTarget = f.dailyGoal || 2;
+
+    completedDates.forEach((dateStr) => {
+      const solved = heatmap[dateStr] || 0;
+      if (solved < dailyTarget) {
+        missedDays += 1;
+      }
+    });
+
+    return {
+      friendId: f.id,
+      name: f.name,
+      color: f.color,
+      initials: f.initials,
+      dailyGoal: dailyTarget,
+      missedDays,
+      grossFine: missedDays * finePerMiss
+    };
+  });
+
+  const totalPool = breakdown.reduce((sum, item) => sum + item.grossFine, 0);
+
+  return {
+    totalPool,
+    breakdown
+  };
+}
+
+function MoneyJar({ total }) {
+  const coinCount = Math.min(24, Math.max(0, Math.ceil(total / 5)));
+
+  const coins = Array.from({ length: coinCount }, (_, index) => {
+    const seed = Math.sin(index + 1) * 10000;
+    const x = 22 + Math.abs(seed % 56);
+    const y = 38 + Math.abs(seed * 7 % 48);
+    const rotate = (seed * 11) % 360;
+    const size = 11 + Math.abs(seed * 13 % 7);
+    return { id: index, x, y, rotate, size };
+  });
+
+  return (
+    <div className="money-jar-wrapper">
+      <svg className="money-jar-svg" viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="jarGlow" cx="50%" cy="60%" r="50%" fx="50%" fy="60%">
+            <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="#fbbf24" stopOpacity="0" />
+          </radialGradient>
+          <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="2" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
+        </defs>
+
+        {total > 0 && (
+          <ellipse cx="50" cy="70" rx="35" ry="35" fill="url(#jarGlow)" filter="url(#glow)" />
+        )}
+
+        {total > 0 && (
+          <path d="M 20 80 Q 50 68 80 80 L 75 96 Q 50 101 25 96 Z" fill="rgba(251, 191, 36, 0.25)" />
+        )}
+
+        <path
+          d="M 36 20 
+             L 64 20 
+             C 64 24, 62 26, 62 30 
+             C 77 38, 84 52, 84 72 
+             C 84 95, 74 104, 50 104 
+             C 26 104, 16 95, 16 72 
+             C 16 52, 23 38, 38 30 
+             C 38 26, 36 24, 36 20 Z"
+          fill="none"
+          stroke="rgba(255, 255, 255, 0.28)"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+
+        <rect x="33" y="14" width="34" height="6" rx="2" fill="none" stroke="rgba(255, 255, 255, 0.38)" strokeWidth="2" />
+        <line x1="33" y1="17" x2="67" y2="17" stroke="rgba(255, 255, 255, 0.2)" strokeWidth="1" />
+
+        {coins.map((coin) => (
+          <g key={coin.id} transform={`translate(${coin.x}, ${coin.y}) rotate(${coin.rotate})`}>
+            <circle cx="0" cy="0" r={coin.size / 2} fill="#eab308" stroke="#fef08a" strokeWidth="0.75" filter="url(#glow)" />
+            <circle cx="0" cy="0" r={coin.size / 3} fill="none" stroke="#ca8a04" strokeWidth="0.5" />
+            <line x1="-1" y1="-1" x2="1" y2="1" stroke="#ca8a04" strokeWidth="0.5" />
+          </g>
+        ))}
+
+        <path d="M 23 52 A 22 22 0 0 1 34 36" fill="none" stroke="rgba(255, 255, 255, 0.18)" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M 26 82 A 28 28 0 0 0 19 68" fill="none" stroke="rgba(255, 255, 255, 0.12)" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+      {total > 0 && <span className="jar-badge pulse-glowing">{total}</span>}
+    </div>
+  );
+}
+
+function MoneyBasket({ friends, logs, isAuth, isAdmin, toast }) {
+  const [settings, setSettings] = useState(() => {
+    return loadJson("meow:fine-settings:v1", {
+      finePerMiss: 5,
+      startDate: "2026-05-20",
+      currency: "$"
+    });
+  });
+
+  const [finesPaid, setFinesPaid] = useState(() => {
+    return loadJson("meow:fines-paid:v1", {});
+  });
+
+  const [showSettings, setShowSettings] = useState(false);
+
+  const updateSettings = (patch) => {
+    setSettings((prev) => {
+      const next = { ...prev, ...patch };
+      saveJson("meow:fine-settings:v1", next);
+      return next;
+    });
+  };
+
+  const recordPayment = (friendId, amount) => {
+    setFinesPaid((prev) => {
+      const next = { ...prev, [friendId]: (prev[friendId] || 0) + amount };
+      saveJson("meow:fines-paid:v1", next);
+      return next;
+    });
+    toast("Payment recorded!");
+  };
+
+  const clearBalance = (friendId, totalDue) => {
+    setFinesPaid((prev) => {
+      const next = { ...prev, [friendId]: totalDue };
+      saveJson("meow:fines-paid:v1", next);
+      return next;
+    });
+    toast("Outstanding fines marked as paid!");
+  };
+
+  const resetPayments = (friendId) => {
+    setFinesPaid((prev) => {
+      const next = { ...prev, [friendId]: 0 };
+      saveJson("meow:fines-paid:v1", next);
+      return next;
+    });
+    toast("Payments history reset!");
+  };
+
+  const { totalPool, breakdown } = useMemo(() => {
+    return calculateFines(friends, logs, Number(settings.finePerMiss) || 5, settings.startDate);
+  }, [friends, logs, settings.finePerMiss, settings.startDate]);
+
+  const adjustedBreakdown = useMemo(() => {
+    return breakdown.map((item) => {
+      const paid = finesPaid[item.friendId] || 0;
+      const netOutstanding = Math.max(0, item.grossFine - paid);
+      return {
+        ...item,
+        paid,
+        netOutstanding
+      };
+    });
+  }, [breakdown, finesPaid]);
+
+  const netOutstandingPool = adjustedBreakdown.reduce((sum, item) => sum + item.netOutstanding, 0);
+
+  return (
+    <section className="panel money-basket-panel">
+      <div className="section-head">
+        <div>
+          <h2>Fine Money Basket</h2>
+          <p>Shared pool tracking fines for missed daily targets since {settings.startDate}.</p>
+        </div>
+        {isAuth && isAdmin && (
+          <div>
+            <button
+              type="button"
+              className="secondary mini-retry"
+              onClick={() => setShowSettings(!showSettings)}
+              style={{ padding: "6px 12px", fontSize: "13px", height: "30px", display: "flex", alignItems: "center", gap: "6px", width: "auto" }}
+            >
+              <Settings size={14} />
+              Configure
+            </button>
+          </div>
+        )}
+      </div>
+
+      {showSettings && isAuth && isAdmin && (
+        <CardSpotlight className="basket-settings-card" style={{ padding: "16px", marginTop: "10px", border: "1px solid var(--line)", borderRadius: "14px", background: "rgba(2, 6, 23, 0.4)" }}>
+          <h3 style={{ margin: "0 0 10px 0", fontSize: "15px", fontWeight: "700" }}>Fine Configuration</h3>
+          <div className="setup-row" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "12px" }}>
+            <label style={{ fontSize: "12px" }}>
+              Fine Amount (per miss)
+              <input
+                type="number"
+                min="0"
+                value={settings.finePerMiss}
+                onChange={(e) => updateSettings({ finePerMiss: e.target.value })}
+                style={{ marginTop: "4px" }}
+              />
+            </label>
+            <label style={{ fontSize: "12px" }}>
+              Fines Start Date
+              <input
+                type="date"
+                max={todayKey()}
+                value={settings.startDate}
+                onChange={(e) => updateSettings({ startDate: e.target.value })}
+                style={{ marginTop: "4px" }}
+              />
+            </label>
+            <label style={{ fontSize: "12px" }}>
+              Currency Symbol
+              <input
+                type="text"
+                maxLength="3"
+                value={settings.currency}
+                onChange={(e) => updateSettings({ currency: e.target.value })}
+                placeholder="$"
+                style={{ marginTop: "4px" }}
+              />
+            </label>
+          </div>
+        </CardSpotlight>
+      )}
+
+      <div className="basket-grid" style={{ display: "grid", gridTemplateColumns: isAuth ? "repeat(auto-fit, minmax(320px, 1fr))" : "1fr", gap: "16px", marginTop: "14px" }}>
+        <CardSpotlight className="basket-main-card" style={{ display: "flex", gap: "20px", alignItems: "center", padding: "20px", justifyContent: "space-between", maxWidth: isAuth ? "none" : "540px", margin: isAuth ? "0" : "0 auto", width: "100%" }}>
+          <div className="basket-stats">
+            <div className="stat-head" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <Coins size={20} style={{ color: "#fbbf24" }} />
+              <span style={{ fontSize: "14px", fontWeight: "700" }}>Pool Total Fines</span>
+            </div>
+            <div style={{ margin: "10px 0 4px 0", display: "flex", alignItems: "baseline", gap: "6px" }}>
+              <span className="basket-amount" style={{ fontSize: "38px", fontWeight: "900", fontFamily: "Geist Mono, monospace", color: "#fbbf24" }}>
+                {settings.currency}{netOutstandingPool}
+              </span>
+              <span className="muted" style={{ fontSize: "13px" }}>
+                outstanding
+              </span>
+            </div>
+            <p className="muted" style={{ fontSize: "12px" }}>
+              Accumulated gross pool: <strong>{settings.currency}{totalPool}</strong> (Paid: {settings.currency}{totalPool - netOutstandingPool})
+            </p>
+            <p className="muted" style={{ fontSize: "11px", marginTop: "10px", borderTop: "1px dashed var(--line)", paddingTop: "8px" }}>
+              Challenge fine is <strong>{settings.currency}{settings.finePerMiss}</strong> per player for any completed day solving fewer than their daily goal.
+            </p>
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <MoneyJar total={netOutstandingPool} />
+          </div>
+        </CardSpotlight>
+
+        {isAuth && (
+          <div className="basket-players-grid" style={{ display: "grid", gap: "10px" }}>
+            {adjustedBreakdown.map((item) => (
+              <CardSpotlight key={item.friendId} className="player-basket-card" style={{ "--you": item.color, display: "grid", gap: "10px", padding: "14px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                    <span className="mini-avatar" style={{ "--tag": item.color, width: "24px", height: "24px", fontSize: "11px" }}>{item.initials}</span>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: "14px", fontWeight: "700" }}>{item.name}</h4>
+                      <span className="muted" style={{ fontSize: "11px" }}>Target: {item.dailyGoal} / day</span>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="status-pill loaded" style={{ margin: 0, fontSize: "10px", background: item.netOutstanding > 0 ? "rgba(239,68,68,0.06)" : "rgba(34,197,94,0.06)", color: item.netOutstanding > 0 ? "#fca5a5" : "#86efac", borderColor: item.netOutstanding > 0 ? "rgba(239,68,68,0.2)" : "rgba(34,197,94,0.2)" }}>
+                      {item.netOutstanding > 0 ? `${item.missedDays} missed` : "All Clear"}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", padding: "8px", border: "1px solid var(--line)", borderRadius: "8px", background: "rgba(2, 6, 23, 0.4)" }}>
+                  <div>
+                    <span className="muted" style={{ fontSize: "10px", display: "block" }}>Gross Fines</span>
+                    <strong style={{ fontSize: "13px", fontFamily: "Geist Mono, monospace", color: "var(--fg)" }}>{settings.currency}{item.grossFine}</strong>
+                  </div>
+                  <div>
+                    <span className="muted" style={{ fontSize: "10px", display: "block" }}>Outstanding</span>
+                    <strong style={{ fontSize: "13px", fontFamily: "Geist Mono, monospace", color: item.netOutstanding > 0 ? "#ef4444" : "var(--green)" }}>{settings.currency}{item.netOutstanding}</strong>
+                  </div>
+                </div>
+
+                {isAuth && isAdmin && (
+                  <div style={{ display: "flex", gap: "6px", marginTop: "2px" }}>
+                    <button
+                      type="button"
+                      className="secondary mini-retry"
+                      onClick={() => recordPayment(item.friendId, Number(settings.finePerMiss))}
+                      disabled={item.netOutstanding <= 0}
+                      style={{ fontSize: "10px", padding: "2px 6px", minWidth: "50px", height: "22px" }}
+                    >
+                      + {settings.currency}{settings.finePerMiss} Paid
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary mini-retry"
+                      onClick={() => clearBalance(item.friendId, item.grossFine)}
+                      disabled={item.netOutstanding <= 0}
+                      style={{ fontSize: "10px", padding: "2px 6px", minWidth: "50px", height: "22px", color: "var(--green)", borderColor: "rgba(34,197,94,0.2)" }}
+                    >
+                      Clear All
+                    </button>
+                    {item.paid > 0 && (
+                      <button
+                        type="button"
+                        className="secondary mini-retry"
+                        onClick={() => resetPayments(item.friendId)}
+                        style={{ fontSize: "10px", padding: "2px 6px", minWidth: "36px", height: "22px", color: "#fca5a5", borderColor: "rgba(239,68,68,0.2)" }}
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                )}
+              </CardSpotlight>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function PersonalLogHistory({ friend, logs, onDeleteLog, toast, isAuth }) {
+  const myLogs = useMemo(() => {
+    return logs
+      .filter((log) => log.user_id === friend.id)
+      .sort((a, b) => b.log_date.localeCompare(a.log_date) || b.created_at.localeCompare(a.created_at));
+  }, [logs, friend.id]);
+
+  const handleDelete = async (id, date, count) => {
+    if (!window.confirm(`Delete entry of ${count} problems on ${date}?`)) return;
+    try {
+      await onDeleteLog(id);
+      toast("Entry deleted successfully.");
+    } catch (err) {
+      toast("Could not delete entry.");
+    }
+  };
+
+  return (
+    <section className="panel log-history-panel">
+      <div className="section-head">
+        <div>
+          <h2>Your Recent Log Entries</h2>
+          <p>Chronological history of your manual submissions. Click trash to delete.</p>
+        </div>
+        <Clock size={18} />
+      </div>
+
+      {!myLogs.length ? (
+        <CardSpotlight className="empty-history-card" style={{ padding: "30px", border: "1px dashed var(--line)", borderRadius: "16px", display: "flex", justifyContent: "center" }}>
+          <p className="muted" style={{ textAlign: "center", margin: 0, fontSize: "13px" }}>No logged entries yet. Add entries using the Log button at the bottom-right!</p>
+        </CardSpotlight>
+      ) : (
+        <div className="log-history-list" style={{ display: "grid", gap: "10px", maxHeight: "300px", overflowY: "auto", paddingRight: "4px" }}>
+          {myLogs.slice(0, 15).map((log) => {
+            const total = Number(log.count) || 0;
+            return (
+              <div
+                key={log.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "10px 14px",
+                  border: "1px solid var(--line)",
+                  borderRadius: "12px",
+                  background: "rgba(2, 6, 23, 0.4)",
+                  gap: "12px"
+                }}
+              >
+                <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    <strong style={{ fontSize: "13px", fontFamily: "Geist Mono, monospace", color: "var(--fg)" }}>
+                      {log.log_date}
+                    </strong>
+                    {log.note && (
+                      <span className="muted" style={{ fontSize: "11px", marginTop: "1px" }}>
+                        "{log.note}"
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: "4px" }}>
+                    {log.difficulty_easy > 0 && (
+                      <span className="status-pill loaded" style={{ margin: 0, fontSize: "10px", background: "rgba(34,197,94,0.06)", color: "#86efac", borderColor: "rgba(34,197,94,0.2)", padding: "1px 5px" }}>
+                        {log.difficulty_easy}E
+                      </span>
+                    )}
+                    {log.difficulty_medium > 0 && (
+                      <span className="status-pill loaded" style={{ margin: 0, fontSize: "10px", background: "rgba(245,158,11,0.06)", color: "#fde047", borderColor: "rgba(245,158,11,0.2)", padding: "1px 5px" }}>
+                        {log.difficulty_medium}M
+                      </span>
+                    )}
+                    {log.difficulty_hard > 0 && (
+                      <span className="status-pill loaded" style={{ margin: 0, fontSize: "10px", background: "rgba(239,68,68,0.06)", color: "#fca5a5", borderColor: "rgba(239,68,68,0.2)", padding: "1px 5px" }}>
+                        {log.difficulty_hard}H
+                      </span>
+                    )}
+                    <span className="status-pill loaded" style={{ margin: 0, fontSize: "10px", fontWeight: "900", background: "rgba(255,255,255,0.06)", color: "var(--fg)", borderColor: "rgba(255,255,255,0.2)", padding: "1px 5px" }}>
+                      {total} Total
+                    </span>
+                  </div>
+
+                  {isAuth && (
+                    <button
+                      type="button"
+                      className="icon-btn mini-delete"
+                      onClick={() => handleDelete(log.id, log.log_date, total)}
+                      style={{ padding: "4px", color: "#fca5a5", display: "flex", alignItems: "center", justifyContent: "center" }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function SharedGoalsPanel({ sharedGoals, addSharedGoal, updateSharedGoal, deleteSharedGoal, friends, toast, offline, isAuth, isAdmin }) {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({ title: "", description: "", daily_target: 4, long_term_target: 200, deadline: "", color: COLORS[1] });
   const [editingGoalId, setEditingGoalId] = useState(null);
-  
+
   const save = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -566,26 +1297,26 @@ function SharedGoalsPanel({ sharedGoals, addSharedGoal, updateSharedGoal, delete
       toast("Could not delete shared challenge.");
     }
   };
-  
+
   const goals = sharedGoals.length ? sharedGoals : [
-    { 
-      id: "default", 
-      title: "Daily Grit Challenge", 
-      description: "A common target set for all of us. Track your progress individually!", 
-      daily_target: 4, 
-      long_term_target: 200, 
-      color: COLORS[1] 
+    {
+      id: "default",
+      title: "Daily Grit Challenge",
+      description: "A common target set for all of us. Track your progress individually!",
+      daily_target: 4,
+      long_term_target: 200,
+      color: COLORS[1]
     }
   ];
 
   return <section className="panel shared-goals">
     <div className="section-head">
       <div><h2>Shared Challenges</h2><p>Common targets that each friend strives to achieve individually.</p></div>
-      <button className="primary" onClick={() => { if (showForm) cancelEdit(); else setShowForm(true); }}><Plus size={16} /> {editingGoalId ? "Cancel Edit" : "New Challenge"}</button>
+      {isAuth && isAdmin && <button className="primary" onClick={() => { if (showForm) cancelEdit(); else setShowForm(true); }}><Plus size={16} /> {editingGoalId ? "Cancel Edit" : "New Challenge"}</button>}
     </div>
     {offline && <div className="offline-banner">Shared challenges table is not available yet. Run the latest Supabase schema to save them.</div>}
-    
-    {showForm && <form className="shared-goal-form" onSubmit={save}>
+
+    {showForm && isAuth && isAdmin && <form className="shared-goal-form" onSubmit={save}>
       <h3 style={{ margin: "0 0 10px 0", fontSize: "16px", fontWeight: "700" }}>{editingGoalId ? "Edit Shared Challenge" : "Create New Shared Challenge"}</h3>
       <label>Challenge Name<input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Daily 4 Problems Challenge" /></label>
       <label>Description<input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Optional description or note" /></label>
@@ -608,7 +1339,7 @@ function SharedGoalsPanel({ sharedGoals, addSharedGoal, updateSharedGoal, delete
           if (!deadlineStr) return null;
           const deadline = new Date(deadlineStr);
           const today = new Date();
-          today.setHours(0,0,0,0);
+          today.setHours(0, 0, 0, 0);
           const diffTime = deadline - today;
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
           return diffDays;
@@ -638,14 +1369,14 @@ function SharedGoalsPanel({ sharedGoals, addSharedGoal, updateSharedGoal, delete
                 )}
               </div>
             )}
-            {goal.id !== "default" && (
+            {isAuth && isAdmin && goal.id !== "default" && (
               <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
                 <button className="secondary mini-retry" onClick={() => startEdit(goal)} style={{ fontSize: "11px", padding: "4px 8px", minWidth: "50px", height: "24px" }}>Edit</button>
                 <button className="secondary mini-retry" onClick={() => handleDelete(goal.id)} style={{ fontSize: "11px", padding: "4px 8px", minWidth: "50px", height: "24px", color: "#fca5a5", borderColor: "rgba(239,68,68,0.2)" }}>Delete</button>
               </div>
             )}
           </div>
-          
+
           <div className="friend-goal-progress-list" style={{ display: "grid", gap: "10px", marginTop: "4px" }}>
             {friends.map((f) => {
               const todayPct = (f.todaySolved / Math.max(1, goal.daily_target)) * 100;
@@ -672,7 +1403,7 @@ function SharedGoalsPanel({ sharedGoals, addSharedGoal, updateSharedGoal, delete
                       </span>
                     )}
                   </div>
-                  
+
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                     <div>
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginBottom: "3px" }}>
@@ -768,22 +1499,6 @@ function Select({ value, onChange, friends }) {
   return <label className="select-wrap"><select value={value} onChange={(e) => onChange(e.target.value)}>{friends.map((f) => <option key={f.id} value={f.id}>{f.isYou ? "You" : f.name}</option>)}</select><ChevronDown size={16} /></label>;
 }
 
-function Badges({ friend, friends }) {
-  return <section className="panel">
-    <div className="section-head"><div><h2>Badges & Achievements</h2><p>{friend.isYou ? "Your" : `${friend.name}'s`} unlocked bragging rights.</p></div><Award /></div>
-    <HoverEffect items={BADGES} render={(badge) => {
-      const earned = badge.test(friend, friends);
-      const Icon = badge.icon;
-      return <CardSpotlight key={badge.id} className={`badge ${earned ? "earned" : "locked"}`}>
-        {earned && <SparklesCore />}
-        <Icon size={26} />
-        <b>{badge.name}</b>
-        <span>{earned ? "Unlocked" : <><Lock size={13} /> Locked</>}</span>
-      </CardSpotlight>;
-    }} />
-  </section>;
-}
-
 function SettingsDrawer({ open, onClose, profile, auth, reloadFriends, toast }) {
   const [form, setForm] = useState({ display_name: "", avatar_color: COLORS[0] });
   const [saving, setSaving] = useState(false);
@@ -848,16 +1563,450 @@ function Toast({ toast }) {
   return <AnimatePresence>{toast && <motion.div className="toast" initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}><Check size={16} />{toast}</motion.div>}</AnimatePresence>;
 }
 
+function AdminGoalsManager({ friends, reloadFriends, toast }) {
+  const [selectedUserId, setSelectedUserId] = useState(friends[0]?.id || "");
+  const [form, setForm] = useState({ daily_target: 2, long_term_target: 300, deadline: "" });
+  const [updating, setUpdating] = useState(false);
+  const { updateGoal } = useGoals();
+
+  const selectedFriend = friends.find((f) => f.id === selectedUserId);
+
+  useEffect(() => {
+    if (selectedFriend) {
+      setForm({
+        daily_target: selectedFriend.dailyGoal || 2,
+        long_term_target: selectedFriend.longGoal || 300,
+        deadline: selectedFriend.deadline || ""
+      });
+    }
+  }, [selectedFriend]);
+
+  const save = async (e) => {
+    e.preventDefault();
+    setUpdating(true);
+    try {
+      await updateGoal({
+        daily_target: Number(form.daily_target),
+        long_term_target: Number(form.long_term_target),
+        long_term_deadline: form.deadline || null
+      }, selectedUserId);
+      await reloadFriends();
+      toast(`Updated goals for ${selectedFriend.name}!`);
+    } catch (err) {
+      toast("Could not update goals.");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  return (
+    <CardSpotlight className="contestant-goals-manager" style={{ padding: "20px" }}>
+      <div className="section-head" style={{ marginBottom: "14px" }}>
+        <div>
+          <h2 style={{ fontSize: "15px", fontWeight: "800", margin: 0 }}>Configure Contestant Goals</h2>
+          <p className="muted" style={{ fontSize: "12px", margin: "4px 0 0 0" }}>Adjust daily, long-term targets, and deadlines for active contestants.</p>
+        </div>
+        <Target size={18} />
+      </div>
+
+      <form onSubmit={save} style={{ display: "grid", gap: "14px" }}>
+        <label style={{ fontSize: "12px", display: "grid", gap: "6px" }}>
+          Select Contestant
+          <div className="select-wrap">
+            <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)}>
+              {friends.map((f) => (
+                <option key={f.id} value={f.id}>{f.name}</option>
+              ))}
+            </select>
+            <ChevronDown size={16} />
+          </div>
+        </label>
+
+        <div className="setup-row difficulties" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "12px", alignItems: "end" }}>
+          <label style={{ fontSize: "12px", display: "grid", gap: "6px" }}>
+            Daily Problem Target
+            <input 
+              type="number" 
+              min="0" 
+              value={form.daily_target} 
+              onChange={(e) => setForm({ ...form, daily_target: e.target.value })} 
+            />
+          </label>
+          <label style={{ fontSize: "12px", display: "grid", gap: "6px" }}>
+            Long-term Total Target
+            <input 
+              type="number" 
+              min="0" 
+              value={form.long_term_target} 
+              onChange={(e) => setForm({ ...form, long_term_target: e.target.value })} 
+            />
+          </label>
+          <label style={{ fontSize: "12px", display: "grid", gap: "6px" }}>
+            Goal Deadline
+            <input 
+              type="date" 
+              value={form.deadline} 
+              onChange={(e) => setForm({ ...form, deadline: e.target.value })} 
+            />
+          </label>
+        </div>
+
+        <button className="primary" disabled={updating} style={{ height: "36px", fontSize: "12px", width: "fit-content", marginTop: "4px" }}>
+          {updating ? "Saving..." : "Update Contestant Goals"}
+        </button>
+      </form>
+    </CardSpotlight>
+  );
+}
+
+function AdminProfileManager({ friends, reloadFriends, toast }) {
+  const [selectedUserId, setSelectedUserId] = useState(friends[0]?.id || "");
+  const [displayName, setDisplayName] = useState("");
+  const [avatarColor, setAvatarColor] = useState("#38bdf8");
+  const [updating, setUpdating] = useState(false);
+
+  const selectedFriend = friends.find((f) => f.id === selectedUserId);
+
+  useEffect(() => {
+    if (selectedFriend) {
+      setDisplayName(selectedFriend.name || "");
+      setAvatarColor(selectedFriend.color || "#38bdf8");
+    }
+  }, [selectedFriend]);
+
+  const save = async (e) => {
+    e.preventDefault();
+    if (!displayName.trim()) return toast("Display name is required.");
+    setUpdating(true);
+    try {
+      const { error } = await supabase.from("users").update({
+        display_name: displayName.trim(),
+        avatar_color: avatarColor
+      }).eq("id", selectedUserId);
+      if (error) throw error;
+      await reloadFriends();
+      toast(`Updated profile for ${displayName.trim()}!`);
+    } catch (err) {
+      toast("Could not update profile.");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  return (
+    <CardSpotlight className="contestant-profile-manager" style={{ padding: "20px" }}>
+      <div className="section-head" style={{ marginBottom: "14px" }}>
+        <div>
+          <h2 style={{ fontSize: "15px", fontWeight: "800", margin: 0 }}>Configure Contestant Profiles</h2>
+          <p className="muted" style={{ fontSize: "12px", margin: "4px 0 0 0" }}>Modify display names and theme colors of contestants directly.</p>
+        </div>
+        <User size={18} />
+      </div>
+
+      <form onSubmit={save} style={{ display: "grid", gap: "14px" }}>
+        <label style={{ fontSize: "12px", display: "grid", gap: "6px" }}>
+          Select Contestant
+          <div className="select-wrap">
+            <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)}>
+              {friends.map((f) => (
+                <option key={f.id} value={f.id}>{f.name}</option>
+              ))}
+            </select>
+            <ChevronDown size={16} />
+          </div>
+        </label>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "12px", alignItems: "end" }}>
+          <label style={{ fontSize: "12px", display: "grid", gap: "6px" }}>
+            Display Name
+            <input 
+              type="text" 
+              value={displayName} 
+              onChange={(e) => setDisplayName(e.target.value)} 
+            />
+          </label>
+          <label style={{ fontSize: "12px", display: "grid", gap: "6px" }}>
+            Theme Color
+            <input 
+              type="color" 
+              value={avatarColor} 
+              onChange={(e) => setAvatarColor(e.target.value)} 
+              style={{ width: "60px", height: "36px", padding: 0, border: "1px solid var(--line)", borderRadius: "8px", cursor: "pointer", background: "transparent" }}
+            />
+          </label>
+        </div>
+
+        <button className="primary" disabled={updating} style={{ height: "36px", fontSize: "12px", width: "fit-content", marginTop: "4px" }}>
+          {updating ? "Saving..." : "Update Contestant Profile"}
+        </button>
+      </form>
+    </CardSpotlight>
+  );
+}
+
+function AdminDashboard({ friends, reloadFriends, sharedGoals, addSharedGoal, updateSharedGoal, deleteSharedGoal, sharedGoalsOffline, toast }) {
+  const [settings, setSettings] = useState(() => {
+    return loadJson("meow:fine-settings:v1", {
+      finePerMiss: 5,
+      startDate: "2026-05-20",
+      currency: "$"
+    });
+  });
+
+  const updateSettings = (patch) => {
+    setSettings((prev) => {
+      const next = { ...prev, ...patch };
+      saveJson("meow:fine-settings:v1", next);
+      return next;
+    });
+    toast("Fine configuration saved.");
+  };
+
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [form, setForm] = useState({ title: "", description: "", daily_target: 4, long_term_target: 200, deadline: "", color: COLORS[1] });
+  const [editingGoalId, setEditingGoalId] = useState(null);
+
+  const save = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      if (editingGoalId) {
+        await updateSharedGoal(editingGoalId, form);
+        toast("Shared challenge updated.");
+      } else {
+        await addSharedGoal(form);
+        toast("Shared challenge created.");
+      }
+      setForm({ title: "", description: "", daily_target: 4, long_term_target: 200, deadline: "", color: COLORS[1] });
+      setEditingGoalId(null);
+      setShowForm(false);
+    } catch (err) {
+      setError(err.message || "Could not save challenge.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const startEdit = (goal) => {
+    setForm({
+      title: goal.title,
+      description: goal.description || "",
+      daily_target: goal.daily_target,
+      long_term_target: goal.long_term_target,
+      deadline: goal.deadline || "",
+      color: goal.color || COLORS[1]
+    });
+    setEditingGoalId(goal.id);
+    setShowForm(true);
+  };
+
+  const cancelEdit = () => {
+    setForm({ title: "", description: "", daily_target: 4, long_term_target: 200, deadline: "", color: COLORS[1] });
+    setEditingGoalId(null);
+    setShowForm(false);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this shared challenge?")) return;
+    try {
+      await deleteSharedGoal(id);
+      toast("Shared challenge deleted.");
+    } catch (err) {
+      toast("Could not delete shared challenge.");
+    }
+  };
+
+  const goals = sharedGoals.length ? sharedGoals : [
+    {
+      id: "default",
+      title: "Daily Grit Challenge",
+      description: "A common target set for all of us. Track your progress individually!",
+      daily_target: 4,
+      long_term_target: 200,
+      color: COLORS[1]
+    }
+  ];
+
+  return (
+    <div className="admin-dashboard" style={{ display: "grid", gap: "24px" }}>
+      {/* 1. Admin Hero Banner */}
+      <div className="admin-hero" style={{ padding: "28px 24px", background: "radial-gradient(circle at top right, rgba(239, 68, 68, 0.08), transparent)", borderRadius: "20px", border: "1px solid var(--line)", position: "relative", overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+          <span style={{ display: "inline-flex", padding: "6px", background: "rgba(239, 68, 68, 0.12)", borderRadius: "8px", color: "#fca5a5", border: "1px solid rgba(239, 68, 68, 0.25)" }}>
+            <Shield size={18} />
+          </span>
+          <span className="eyebrow" style={{ textTransform: "uppercase", letterSpacing: "0.05em", color: "#fca5a5", fontSize: "11px", fontWeight: "700" }}>System Admin Portal</span>
+        </div>
+        <h1 style={{ fontSize: "1.8rem", fontWeight: "900", margin: "0 0 6px 0", color: "var(--fg)" }}>
+          Administrative Settings
+        </h1>
+        <p className="muted" style={{ fontSize: "13px", maxWidth: "600px", margin: 0 }}>
+          Direct configuration management. Tweak platform parameters and control shared challenges directly without any user statistics or competitor logs.
+        </p>
+      </div>
+
+      {/* 2. Fine Basket Settings Editor */}
+      <CardSpotlight className="basket-settings-panel" style={{ padding: "20px" }}>
+        <div className="section-head" style={{ marginBottom: "14px" }}>
+          <div>
+            <h2 style={{ fontSize: "15px", fontWeight: "800", margin: 0 }}>Fines & Basket Configuration</h2>
+            <p className="muted" style={{ fontSize: "12px", margin: "4px 0 0 0" }}>Adjust global basket fine conditions. Updates are applied instantly to fine pool calculations.</p>
+          </div>
+          <Settings size={18} />
+        </div>
+
+        <div className="setup-row" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
+          <label style={{ fontSize: "12px", display: "grid", gap: "6px" }}>
+            Fine Amount (per miss)
+            <input
+              type="number"
+              min="0"
+              value={settings.finePerMiss}
+              onChange={(e) => updateSettings({ finePerMiss: e.target.value })}
+            />
+          </label>
+          <label style={{ fontSize: "12px", display: "grid", gap: "6px" }}>
+            Fines Start Date
+            <input
+              type="date"
+              max={todayKey()}
+              value={settings.startDate}
+              onChange={(e) => updateSettings({ startDate: e.target.value })}
+            />
+          </label>
+          <label style={{ fontSize: "12px", display: "grid", gap: "6px" }}>
+            Currency Symbol
+            <input
+              type="text"
+              maxLength="3"
+              value={settings.currency}
+              onChange={(e) => updateSettings({ currency: e.target.value })}
+              placeholder="$"
+            />
+          </label>
+        </div>
+      </CardSpotlight>
+
+      {/* 2.5. Contestant Goals Settings Editor */}
+      <AdminGoalsManager friends={friends} reloadFriends={reloadFriends} toast={toast} />
+
+      {/* 2.7. Contestant Profile Settings Editor */}
+      <AdminProfileManager friends={friends} reloadFriends={reloadFriends} toast={toast} />
+
+      {/* 3. Shared Challenges Manager */}
+      <CardSpotlight className="shared-challenges-settings-panel" style={{ padding: "20px" }}>
+        <div className="section-head" style={{ marginBottom: "14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <h2 style={{ fontSize: "15px", fontWeight: "800", margin: 0 }}>Shared Challenges Manager</h2>
+            <p className="muted" style={{ fontSize: "12px", margin: "4px 0 0 0" }}>Configure, modify, or delete active contestant challenges.</p>
+          </div>
+          <button
+            type="button"
+            className="primary"
+            onClick={() => { if (showForm) cancelEdit(); else setShowForm(true); }}
+            style={{ height: "30px", padding: "0 12px", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px", width: "auto" }}
+          >
+            <Plus size={14} /> {editingGoalId ? "Cancel Edit" : "New Challenge"}
+          </button>
+        </div>
+
+        {sharedGoalsOffline && <div className="offline-banner" style={{ marginBottom: "12px" }}>Shared challenges table is not available yet.</div>}
+
+        {showForm && (
+          <form className="shared-goal-form" onSubmit={save} style={{ margin: "0 0 20px 0", border: "1px solid var(--line)", padding: "16px", borderRadius: "12px", background: "rgba(2, 6, 23, 0.4)", display: "grid", gap: "10px" }}>
+            <h3 style={{ margin: "0 0 8px 0", fontSize: "13px", fontWeight: "700" }}>{editingGoalId ? "Edit Shared Challenge" : "Create New Shared Challenge"}</h3>
+            <label style={{ fontSize: "12px", display: "grid", gap: "4px" }}>Challenge Name<input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Daily 4 Problems Challenge" /></label>
+            <label style={{ fontSize: "12px", display: "grid", gap: "4px" }}>Description<input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Optional description or note" /></label>
+            <div className="setup-row difficulties" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+              <label style={{ fontSize: "12px", display: "grid", gap: "4px" }}>Daily target (per person)<input type="number" min="0" value={form.daily_target} onChange={(e) => setForm({ ...form, daily_target: e.target.value })} /></label>
+              <label style={{ fontSize: "12px", display: "grid", gap: "4px" }}>Total target (per person)<input type="number" min="0" value={form.long_term_target} onChange={(e) => setForm({ ...form, long_term_target: e.target.value })} /></label>
+              <label style={{ fontSize: "12px", display: "grid", gap: "4px" }}>Deadline<input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} /></label>
+            </div>
+            <label style={{ fontSize: "12px", display: "grid", gap: "4px" }}>Theme Color<input type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></label>
+            {error && <p className="error-text">{error}</p>}
+            <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+              <button className="primary" disabled={saving} style={{ height: "32px", fontSize: "12px" }}>{saving ? "Saving..." : editingGoalId ? "Save Changes" : "Create Shared Challenge"}</button>
+              {editingGoalId && <button className="secondary" type="button" onClick={cancelEdit} style={{ height: "32px", fontSize: "12px" }}>Cancel</button>}
+            </div>
+          </form>
+        )}
+
+        <div className="admin-goals-list" style={{ display: "grid", gap: "12px" }}>
+          {goals.map((goal) => (
+            <div
+              key={goal.id}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "12px 16px",
+                border: `1px solid ${goal.color}33`,
+                borderRadius: "12px",
+                background: "rgba(2, 6, 23, 0.4)",
+                gap: "16px"
+              }}
+            >
+              <div>
+                <h3 style={{ margin: "0 0 4px 0", fontSize: "13px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <i style={{ display: "inline-block", width: "8px", height: "8px", borderRadius: "50%", background: goal.color }} />
+                  {goal.title}
+                </h3>
+                {goal.description && <p className="muted" style={{ margin: "0 0 6px 0", fontSize: "11px" }}>{goal.description}</p>}
+                <div style={{ display: "flex", gap: "12px", fontSize: "11px", color: "#94a3b8" }}>
+                  <span>Daily Target: <strong>{goal.daily_target}</strong></span>
+                  <span>•</span>
+                  <span>Long-term Target: <strong>{goal.long_term_target}</strong></span>
+                  {goal.deadline && (
+                    <>
+                      <span>•</span>
+                      <span>Deadline: <strong>{goal.deadline}</strong></span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {goal.id !== "default" && (
+                <div style={{ display: "flex", gap: "6px" }}>
+                  <button
+                    type="button"
+                    className="secondary mini-retry"
+                    onClick={() => startEdit(goal)}
+                    style={{ fontSize: "10px", padding: "2px 8px", height: "24px" }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary mini-retry"
+                    onClick={() => handleDelete(goal.id)}
+                    style={{ fontSize: "10px", padding: "2px 8px", height: "24px", color: "#fca5a5", borderColor: "rgba(239,68,68,0.2)" }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </CardSpotlight>
+    </div>
+  );
+}
+
 function App() {
   const auth = useAuth();
   const { friends, reloadFriends, offline: friendsOffline } = useFriends(auth.session);
-  const { logs, addLog, lastRealtimeLog } = useManualLogs(auth.session);
+  const { logs, addLog, deleteLog, lastRealtimeLog } = useManualLogs(auth.session);
   const { updateGoal } = useGoals(auth.user || {});
   const { sharedGoals, addSharedGoal, updateSharedGoal, deleteSharedGoal, offline: sharedGoalsOffline } = useSharedGoals(auth.session, auth.user || {});
   const { stats, realtimeStatus } = useStats(friends, logs);
   const [activeId, setActiveId] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
   const [toast, setToast] = useState("");
 
   const hydratedStats = stats.map((f) => ({ ...f, isYou: f.id === auth.user?.id }));
@@ -871,41 +2020,163 @@ function App() {
     const rawDays = Math.max(30, diffDays + 14); // show at least 30 days, or oldest log date minus 14 days
     return Math.ceil(rawDays / 7) * 7; // Round to whole weeks
   }, [logs]);
+
   useEffect(() => {
     if (hydratedStats.length && !hydratedStats.find((f) => f.id === activeId)) setActiveId(currentFriend?.id || hydratedStats[0].id);
   }, [hydratedStats, activeId, currentFriend]);
+
   useEffect(() => {
     if (lastRealtimeLog && lastRealtimeLog.user_id !== auth.user?.id) setToast("Logged by a friend just now");
   }, [lastRealtimeLog, auth.user?.id]);
+
   const activeFriend = hydratedStats.find((f) => f.id === activeId) || currentFriend || hydratedStats[0];
+
   const toastNow = (msg) => {
     setToast(msg);
     setTimeout(() => setToast(""), 2600);
   };
+
+  const handleFabClick = () => {
+    if (auth.session) setLogOpen(true);
+    else setLoginOpen(true);
+  };
+
   if (auth.loading) return <main><BackgroundBeams /><SparklesCore /><div className="auth-page"><Skeleton className="skeleton-chart" /></div></main>;
-  if (!auth.session) return <LoginPage auth={auth} />;
 
   return <main>
     <BackgroundBeams />
     <SparklesCore />
     <nav className="top-nav">
       <a className="logo" href="#top"><span className="cat-logo"><Cat size={18} /></span> Meow</a>
-      <div className="profile-actions"><button className="profile-pill" onClick={() => setSettingsOpen(true)}><span className="mini-avatar" style={{ "--tag": auth.profile?.avatar_color || COLORS[0] }}>{initials(auth.profile?.display_name)}</span>{auth.profile?.display_name || "You"}</button><button className="icon-btn" onClick={auth.logout}><LogOut /></button></div>
+
+      {auth.session ? (
+        <div className="profile-actions">
+          {auth.isAdmin ? (
+            <span className="profile-pill admin-pill" style={{ cursor: "default", background: "rgba(239, 68, 68, 0.12)", border: "1px solid rgba(239, 68, 68, 0.3)", color: "#fca5a5", display: "inline-flex", alignItems: "center", gap: "6px", padding: "6px 12px", borderRadius: "100px", fontSize: "13px" }}>
+              <Shield size={14} /> System Admin
+            </span>
+          ) : (
+            <button className="profile-pill" onClick={() => setSettingsOpen(true)}>
+              <span className="mini-avatar" style={{ "--tag": auth.profile?.avatar_color || COLORS[0] }}>
+                {initials(auth.profile?.display_name)}
+              </span>
+              {auth.profile?.display_name || "You"}
+            </button>
+          )}
+          <button type="button" className="icon-btn" onClick={() => auth.logout()} style={{ zIndex: 100, position: "relative" }}><LogOut /></button>
+        </div>
+      ) : (
+        <div className="profile-actions">
+          <button className="primary" onClick={() => setLoginOpen(true)} style={{ display: "flex", alignItems: "center", gap: "6px", height: "34px", padding: "0 12px", fontSize: "13px", width: "auto" }}>
+            <Lock size={14} /> Login
+          </button>
+        </div>
+      )}
     </nav>
+
     <div id="top" className="page">
       {(auth.offline || friendsOffline) && <div className="offline-banner">Offline mode: showing local cached dashboard data.</div>}
-      <TodayStrip friends={hydratedStats} realtimeStatus={realtimeStatus} />
-      <Hero friends={hydratedStats} activeId={activeId} setActiveId={setActiveId} />
-      <SharedGoalsPanel sharedGoals={sharedGoals} addSharedGoal={addSharedGoal} updateSharedGoal={updateSharedGoal} deleteSharedGoal={deleteSharedGoal} friends={hydratedStats} toast={toastNow} offline={sharedGoalsOffline} />
-      <ActivityFeed logs={logs} friends={hydratedStats} toast={toastNow} />
-      <ProfilesPanel friends={hydratedStats} activeId={activeId} setActiveId={setActiveId} openSettings={() => setSettingsOpen(true)} />
-      {activeFriend && <PersonalStats friend={activeFriend} friends={hydratedStats} />}
-      <Heatmap friends={hydratedStats} activeId={activeId} daysToShow={daysToShow} />
-      {activeFriend && <Analytics friends={hydratedStats} daysToShow={daysToShow} />}
+
+      {auth.session && auth.isAdmin ? (
+        <AdminDashboard
+          friends={hydratedStats}
+          reloadFriends={reloadFriends}
+          sharedGoals={sharedGoals}
+          addSharedGoal={addSharedGoal}
+          updateSharedGoal={updateSharedGoal}
+          deleteSharedGoal={deleteSharedGoal}
+          sharedGoalsOffline={sharedGoalsOffline}
+          toast={toastNow}
+        />
+      ) : (
+        <>
+          <TodayStrip friends={hydratedStats} realtimeStatus={realtimeStatus} />
+          <Hero friends={hydratedStats} activeId={activeId} setActiveId={setActiveId} />
+
+          {!auth.session && (
+            <>
+              {/* Fines Basket Total Pool (Only pool card is shown when logged out) */}
+              <MoneyBasket friends={hydratedStats} logs={logs} isAuth={false} isAdmin={false} toast={toastNow} />
+
+              {/* Goal Progress Bars (full width card) */}
+              <GoalProgressCard friends={hydratedStats} />
+
+              {/* All contestants heatmaps displayed together for public view */}
+              <Heatmap friends={hydratedStats} daysToShow={daysToShow} />
+            </>
+          )}
+
+          {auth.session && (
+            <>
+              {/* 1. Fine Money Basket (Common) */}
+              <MoneyBasket friends={hydratedStats} logs={logs} isAuth={Boolean(auth.session)} isAdmin={auth.isAdmin} toast={toastNow} />
+
+              {/* 2. Shared Challenges (Common) */}
+              <SharedGoalsPanel sharedGoals={sharedGoals} addSharedGoal={addSharedGoal} updateSharedGoal={updateSharedGoal} deleteSharedGoal={deleteSharedGoal} friends={hydratedStats} toast={toastNow} offline={sharedGoalsOffline} isAuth={Boolean(auth.session)} isAdmin={auth.isAdmin} />
+            </>
+          )}
+
+          {auth.session && (
+            <>
+              {/* 3. Activity Feed (Common) */}
+              <ActivityFeed logs={logs} friends={hydratedStats} toast={toastNow} />
+
+              {/* 4. Profiles Panel (Common) */}
+              <ProfilesPanel friends={hydratedStats} activeId={activeId} setActiveId={setActiveId} openSettings={() => setSettingsOpen(true)} />
+
+              {/* 5. Personal Bento Stats for Selected Player (Common) */}
+              {activeFriend && <PersonalStats friend={activeFriend} friends={hydratedStats} logs={logs} />}
+
+              {/* 7. Heatmap (Individual Selected Profile Only) */}
+              {activeFriend && <Heatmap friends={hydratedStats} daysToShow={daysToShow} singleFriend={activeFriend} />}
+
+              {/* 8. Analytics Comparison Charts (Common) */}
+              {activeFriend && <Analytics friends={hydratedStats} daysToShow={daysToShow} />}
+            </>
+          )}
+
+          {/* 9. Personal Logs Management (Authenticated Only) */}
+          {auth.session ? (
+            <div className="personal-workspace-section" style={{ marginTop: "32px", borderTop: "1px solid var(--line)", paddingTop: "24px" }}>
+              <div className="section-head" style={{ marginBottom: "14px" }}>
+                <div>
+                  <h2>Personal Log Management: {auth.profile?.display_name}</h2>
+                  <p>Chronological history of your logged entries. You can delete items here in realtime.</p>
+                </div>
+                <Sparkles size={20} style={{ color: auth.profile?.avatar_color || COLORS[0] }} />
+              </div>
+
+              {currentFriend && (
+                <div style={{ marginTop: "14px" }}>
+                  <PersonalLogHistory friend={currentFriend} logs={logs} onDeleteLog={deleteLog} toast={toastNow} isAuth={true} />
+                </div>
+              )}
+            </div>
+          ) : (
+            <section className="panel public-cta-panel" style={{ marginTop: "32px" }}>
+              <CardSpotlight className="public-cta-card" style={{ padding: "32px", textAlign: "center", display: "grid", gap: "16px", justifyContent: "center", border: "1px solid var(--line)" }}>
+                <Lock size={32} style={{ color: "var(--fg)", margin: "0 auto" }} />
+                <h2 style={{ fontSize: "20px", fontWeight: "800", margin: 0 }}>Locked Log Submissions</h2>
+                <p className="muted" style={{ maxWidth: "460px", fontSize: "13px", margin: "0 auto" }}>
+                  Unlock manual logging to submit your solved problems, edit your profile color/name, and delete recent entries!
+                </p>
+                <button className="primary" onClick={() => setLoginOpen(true)} style={{ width: "fit-content", margin: "0 auto" }}>
+                  Unlock Log Panel
+                </button>
+              </CardSpotlight>
+            </section>
+          )}
+        </>
+      )}
     </div>
-    <button className="fab" onClick={() => setLogOpen(true)}><Plus /><span>Log</span></button>
+
+    {!auth.isAdmin && (
+      <button className="fab" onClick={handleFabClick}><Plus /><span>Log</span></button>
+    )}
+
     <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} profile={auth.profile} auth={auth} reloadFriends={reloadFriends} toast={toastNow} />
     <ManualLogModal open={logOpen} onClose={() => setLogOpen(false)} user={auth.user} addLog={addLog} toast={toastNow} />
+    <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} auth={auth} />
     <Toast toast={toast} />
   </main>;
 }

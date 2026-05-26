@@ -47,33 +47,37 @@ alter table public.goals enable row level security;
 alter table public.shared_goals enable row level security;
 
 drop policy if exists "authenticated can read users" on public.users;
+drop policy if exists "anyone can read users" on public.users;
 drop policy if exists "users insert self" on public.users;
 drop policy if exists "users update self" on public.users;
-create policy "authenticated can read users" on public.users for select to authenticated using (true);
+create policy "anyone can read users" on public.users for select to anon, authenticated using (true);
 create policy "users insert self" on public.users for insert to authenticated with check (auth.uid() = id);
 create policy "users update self" on public.users for update to authenticated using (auth.uid() = id) with check (auth.uid() = id);
 
 drop policy if exists "authenticated can read manual logs" on public.manual_logs;
+drop policy if exists "anyone can read manual logs" on public.manual_logs;
 drop policy if exists "manual logs insert self" on public.manual_logs;
 drop policy if exists "manual logs update self" on public.manual_logs;
 drop policy if exists "manual logs delete self" on public.manual_logs;
-create policy "authenticated can read manual logs" on public.manual_logs for select to authenticated using (true);
+create policy "anyone can read manual logs" on public.manual_logs for select to anon, authenticated using (true);
 create policy "manual logs insert self" on public.manual_logs for insert to authenticated with check (auth.uid() = user_id);
 create policy "manual logs update self" on public.manual_logs for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "manual logs delete self" on public.manual_logs for delete to authenticated using (auth.uid() = user_id);
 
 drop policy if exists "authenticated can read goals" on public.goals;
+drop policy if exists "anyone can read goals" on public.goals;
 drop policy if exists "goals insert self" on public.goals;
 drop policy if exists "goals update self" on public.goals;
-create policy "authenticated can read goals" on public.goals for select to authenticated using (true);
+create policy "anyone can read goals" on public.goals for select to anon, authenticated using (true);
 create policy "goals insert self" on public.goals for insert to authenticated with check (auth.uid() = user_id);
 create policy "goals update self" on public.goals for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 drop policy if exists "authenticated can read shared goals" on public.shared_goals;
+drop policy if exists "anyone can read shared goals" on public.shared_goals;
 drop policy if exists "authenticated can insert shared goals" on public.shared_goals;
 drop policy if exists "authenticated can update shared goals" on public.shared_goals;
 drop policy if exists "shared goal creators can delete" on public.shared_goals;
-create policy "authenticated can read shared goals" on public.shared_goals for select to authenticated using (true);
+create policy "anyone can read shared goals" on public.shared_goals for select to anon, authenticated using (true);
 create policy "authenticated can insert shared goals" on public.shared_goals for insert to authenticated with check (auth.uid() = created_by);
 create policy "authenticated can update shared goals" on public.shared_goals for update to authenticated using (true) with check (true);
 create policy "shared goal creators can delete" on public.shared_goals for delete to authenticated using (auth.uid() = created_by);
@@ -124,4 +128,25 @@ on conflict (id) do update set
   email = excluded.email,
   password = excluded.password,
   color = excluded.color;
+
+-- Separate admins table (not tied to auth.users)
+create table if not exists public.admins (
+  email text primary key,
+  note text,
+  created_at timestamptz not null default now()
+);
+
+-- Enable RLS
+alter table public.admins enable row level security;
+
+-- Allow reads from clients (so the app can check admin existence)
+drop policy if exists anyone_can_read_admins on public.admins;
+create policy anyone_can_read_admins on public.admins
+  for select to anon, authenticated using (true);
+
+-- Populate a default admin so Jayant is admin by default
+insert into public.admins (email, note) values
+  ('jayant@gmail.com', 'Primary admin account')
+on conflict (email) do nothing;
+
 

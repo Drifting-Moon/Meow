@@ -16,11 +16,21 @@ export function useAuth() {
   const [session, setSession] = useState(null);
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [offline, setOffline] = useState(!supabaseConfigured);
 
   const loadProfile = useCallback(async (authUser) => {
     if (!authUser || !supabaseConfigured) return null;
+
+    try {
+      const isHardcodedAdmin = authUser.email === "admin@gmail.com";
+      const { data: adminData } = await supabase.from("admins").select("*").eq("email", authUser.email).maybeSingle();
+      setIsAdmin(isHardcodedAdmin || Boolean(adminData));
+    } catch {
+      setIsAdmin(authUser.email === "admin@gmail.com");
+    }
+
     const { data, error } = await supabase.from("users").select("*").eq("id", authUser.id).maybeSingle();
     if (error) throw error;
     if (data) {
@@ -57,7 +67,10 @@ export function useAuth() {
       setSession(nextSession);
       setUser(nextSession?.user || null);
       if (nextSession?.user) loadProfile(nextSession.user).catch(() => setOffline(true));
-      else setProfile(null);
+      else {
+        setProfile(null);
+        setIsAdmin(false);
+      }
     });
     return () => {
       alive = false;
@@ -76,7 +89,7 @@ export function useAuth() {
     setProfile(data);
   };
 
-  return { session, user, profile, loading, offline, login, logout, updateProfile, supabaseConfigured };
+  return { session, user, profile, loading, offline, login, logout, updateProfile, isAdmin, supabaseConfigured };
 }
 
 export function useFriends(session) {
@@ -84,32 +97,40 @@ export function useFriends(session) {
   const [offline, setOffline] = useState(false);
 
   const load = useCallback(async () => {
-    if (!session || !supabaseConfigured) return;
+    if (!supabaseConfigured) return;
     try {
       const [usersRes, goalsRes] = await Promise.all([
         supabase.from("users").select("*").order("created_at"),
         supabase.from("goals").select("*")
       ]);
       if (usersRes.error || goalsRes.error) throw usersRes.error || goalsRes.error;
-      const next = usersRes.data.map((u, index) => {
-        const goal = goalsRes.data.find((g) => g.user_id === u.id) || {};
-        const fallbackColors = ["#00ff87", "#38bdf8", "#a78bfa", "#fbbf24", "#fb7185", "#2dd4bf"];
-        const color = u.avatar_color === "#00ff87"
-          ? fallbackColors[index % fallbackColors.length]
-          : u.avatar_color;
-        const capName = u.display_name.replace(/\b\w/g, c => c.toUpperCase());
-        return {
-          id: u.id,
-          name: capName,
-          display_name: u.display_name,
-          initials: initials(u.display_name),
-          color: color,
-          avatar_color: u.avatar_color,
-          dailyGoal: goal.daily_target ?? 2,
-          longGoal: goal.long_term_target ?? 300,
-          deadline: goal.long_term_deadline
-        };
-      });
+      
+      if (usersRes.data.length === 0 && !session) {
+        setFriends(loadJson(OFFLINE_KEY, { friends: [] }).friends || []);
+        return;
+      }
+
+      const next = usersRes.data
+        .map((u, index) => {
+          const goal = goalsRes.data.find((g) => g.user_id === u.id) || {};
+          const fallbackColors = ["#00ff87", "#38bdf8", "#a78bfa", "#fbbf24", "#fb7185", "#2dd4bf"];
+          const color = u.avatar_color === "#00ff87"
+            ? fallbackColors[index % fallbackColors.length]
+            : u.avatar_color;
+          const capName = u.display_name.replace(/\b\w/g, c => c.toUpperCase());
+          return {
+            id: u.id,
+            name: capName,
+            display_name: u.display_name,
+            initials: initials(u.display_name),
+            color: color,
+            avatar_color: u.avatar_color,
+            dailyGoal: goal.daily_target ?? 2,
+            longGoal: goal.long_term_target ?? 300,
+            deadline: goal.long_term_deadline
+          };
+        })
+        .filter((u) => u.display_name.toLowerCase() !== "admin");
       saveJson(OFFLINE_KEY, { friends: next });
       setFriends(next);
     } catch {
@@ -120,7 +141,7 @@ export function useFriends(session) {
 
   useEffect(() => {
     load();
-    if (!session || !supabaseConfigured) return undefined;
+    if (!supabaseConfigured) return undefined;
     const channel = supabase.channel("friends-live-" + Math.random().toString(36).substring(7))
       .on("postgres_changes", { event: "*", schema: "public", table: "users" }, load)
       .on("postgres_changes", { event: "*", schema: "public", table: "goals" }, load)
@@ -136,18 +157,24 @@ export function useManualLogs(session) {
   const [lastRealtimeLog, setLastRealtimeLog] = useState(null);
 
   const load = useCallback(async () => {
-    if (!session || !supabaseConfigured) return;
+    if (!supabaseConfigured) return;
     const since = new Date();
     since.setDate(since.getDate() - 370);
     const { data, error } = await supabase.from("manual_logs").select("*").gte("log_date", since.toISOString().slice(0, 10));
     if (error) throw error;
+    
+    if ((!data || data.length === 0) && !session) {
+      setLogs(loadJson(OFFLINE_KEY, { logs: [] }).logs || []);
+      return;
+    }
+    
     setLogs(data || []);
     saveJson(OFFLINE_KEY, { ...loadJson(OFFLINE_KEY, {}), logs: data || [] });
   }, [session]);
 
   useEffect(() => {
     load().catch(() => setLogs(loadJson(OFFLINE_KEY, { logs: [] }).logs || []));
-    if (!session || !supabaseConfigured) return undefined;
+    if (!supabaseConfigured) return undefined;
     const channel = supabase.channel("manual-logs-live-" + Math.random().toString(36).substring(7))
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "manual_logs" }, (payload) => {
         setLogs((prev) => [payload.new, ...prev]);
@@ -168,12 +195,17 @@ export function useManualLogs(session) {
     if (error) throw error;
   };
 
-  return { logs, addLog, reloadLogs: load, lastRealtimeLog };
+  const deleteLog = async (id) => {
+    const { error } = await supabase.from("manual_logs").delete().eq("id", id);
+    if (error) throw error;
+  };
+
+  return { logs, addLog, deleteLog, reloadLogs: load, lastRealtimeLog };
 }
 
-export function useGoals(user) {
-  const updateGoal = async (patch) => {
-    const { error } = await supabase.from("goals").upsert({ user_id: user.id, ...patch }, { onConflict: "user_id" });
+export function useGoals(user = {}) {
+  const updateGoal = async (patch, targetUserId = null) => {
+    const { error } = await supabase.from("goals").upsert({ user_id: targetUserId || user.id, ...patch }, { onConflict: "user_id" });
     if (error) throw error;
   };
   return { updateGoal };
@@ -184,9 +216,15 @@ export function useSharedGoals(session, user) {
   const [offline, setOffline] = useState(false);
 
   const load = useCallback(async () => {
-    if (!session || !supabaseConfigured) return;
+    if (!supabaseConfigured) return;
     const { data, error } = await supabase.from("shared_goals").select("*").order("created_at");
     if (error) throw error;
+    
+    if ((!data || data.length === 0) && !session) {
+      setSharedGoals(loadJson(OFFLINE_KEY, { sharedGoals: [] }).sharedGoals || []);
+      return;
+    }
+
     setSharedGoals(data || []);
     saveJson(OFFLINE_KEY, { ...loadJson(OFFLINE_KEY, {}), sharedGoals: data || [] });
   }, [session]);
@@ -196,7 +234,7 @@ export function useSharedGoals(session, user) {
       setOffline(true);
       setSharedGoals(loadJson(OFFLINE_KEY, { sharedGoals: [] }).sharedGoals || []);
     });
-    if (!session || !supabaseConfigured) return undefined;
+    if (!supabaseConfigured) return undefined;
     const channel = supabase.channel("shared-goals-live-" + Math.random().toString(36).substring(7))
       .on("postgres_changes", { event: "*", schema: "public", table: "shared_goals" }, load)
       .subscribe();

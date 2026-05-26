@@ -172,10 +172,7 @@ select { appearance: none; }
 .mini-calendar .left { background: rgba(34,197,94,.16); } .mini-calendar .right { background: rgba(56,189,248,.16); } .mini-calendar .tie { background: rgba(148,163,184,.1); }
 .primary { display: inline-flex; justify-content: center; align-items: center; gap: 8px; border: 1px solid var(--text); border-radius: 13px; padding: 12px 15px; background: var(--text); color: var(--bg); font-weight: 800; box-shadow: none; transition: all 0.2s ease; }
 .primary:hover { background: transparent; color: var(--text); }
-.badge { min-height: 150px; display: grid; align-content: center; justify-items: start; gap: 10px; }
-.badge.earned { border-color: rgba(251,191,36,.4); box-shadow: none; }
-.badge.locked { filter: grayscale(1); opacity: .62; }
-.badge span { display: flex; gap: 5px; align-items: center; color: var(--muted); }
+
 
 .fab { position: fixed; right: 22px; bottom: 22px; z-index: 25; display: flex; gap: 8px; align-items: center; border: 1px solid var(--text); border-radius: 999px; padding: 16px 18px; background: var(--text); color: var(--bg); font-weight: 900; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); transition: all 0.2s ease; }
 .fab:hover { background: transparent; color: var(--text); }
@@ -282,4 +279,107 @@ select { appearance: none; }
   .today-head { align-items: stretch; flex-direction: column; }
   .rank-row { grid-template-columns: 34px 70px 1fr 48px; }
   .tabs { overflow-x: auto; }
+}
+
+/* Fine Money Basket & SVG Money Jar */
+.money-basket-panel {
+  margin-top: 18px;
+}
+.basket-settings-card {
+  transition: all 0.25s ease;
+}
+.basket-main-card {
+  background: radial-gradient(circle at 10% 20%, rgba(251, 191, 36, 0.05) 0%, rgba(5, 8, 14, 0.3) 90%);
+  border: 1px solid rgba(251, 191, 36, 0.15) !important;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+}
+.money-jar-wrapper {
+  position: relative;
+  width: 130px;
+  height: 156px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.money-jar-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.jar-badge {
+  position: absolute;
+  top: 48%;
+  left: 50%;
+  transform: translate(-50%, -50%) !important;
+  background: #f59e0b;
+  color: #000;
+  font-family: "Geist Mono", monospace;
+  font-size: 16px;
+  font-weight: 900;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 2px solid #fff;
+  z-index: 5;
+  pointer-events: none;
+}
+.player-basket-card {
+  position: relative;
+  border: 1px solid var(--line);
+  background: rgba(15, 23, 42, 0.3);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+.player-basket-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--you), transparent 50%);
+}
+
+/* Recent Log History */
+.log-history-panel {
+  margin-top: 18px;
+}
+.log-history-list::-webkit-scrollbar {
+  width: 6px;
+}
+.log-history-list::-webkit-scrollbar-track {
+  background: rgba(2, 6, 23, 0.2);
+  border-radius: 10px;
+}
+.log-history-list::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 10px;
+}
+.mini-delete {
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.15) !important;
+  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+.mini-delete:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  transform: scale(1.05);
+}
+
+/* Onboarding & Modal Auth Adjustments */
+.auth-modal {
+  max-width: 500px;
+}
+.public-cta-card {
+  background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.04) 0%, rgba(5, 8, 14, 0.3) 100%);
+  border: 1px solid var(--line);
+}
+
+/* Animations */
+@keyframes pulseGlow {
+  0% { box-shadow: 0 0 10px rgba(251, 191, 36, 0.3); transform: translate(-50%, -50%) scale(1); }
+  50% { box-shadow: 0 0 20px rgba(251, 191, 36, 0.6); transform: translate(-50%, -50%) scale(1.06); }
+  100% { box-shadow: 0 0 10px rgba(251, 191, 36, 0.3); transform: translate(-50%, -50%) scale(1); }
+}
+.pulse-glowing {
+  animation: pulseGlow 2s infinite ease-in-out;
 }
