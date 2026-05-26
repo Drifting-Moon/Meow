@@ -80,7 +80,16 @@ export function useAuth() {
 
   const login = async (email, password) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+    if (error) {
+      if (error.message?.includes("Invalid login credentials") || error.status === 400) {
+        const { error: signUpError } = await supabase.auth.signUp({ email, password });
+        if (signUpError) throw signUpError;
+        const { error: retryError } = await supabase.auth.signInWithPassword({ email, password });
+        if (retryError) throw retryError;
+        return;
+      }
+      throw error;
+    }
   };
   const logout = async () => supabase.auth.signOut();
   const updateProfile = async (patch) => {
@@ -105,32 +114,47 @@ export function useFriends(session) {
       ]);
       if (usersRes.error || goalsRes.error) throw usersRes.error || goalsRes.error;
       
-      if (usersRes.data.length === 0 && !session) {
-        setFriends(loadJson(OFFLINE_KEY, { friends: [] }).friends || []);
-        return;
-      }
+      const dbUsers = usersRes.data || [];
+      const dbGoals = goalsRes.data || [];
 
-      const next = usersRes.data
-        .map((u, index) => {
-          const goal = goalsRes.data.find((g) => g.user_id === u.id) || {};
-          const fallbackColors = ["#00ff87", "#38bdf8", "#a78bfa", "#fbbf24", "#fb7185", "#2dd4bf"];
-          const color = u.avatar_color === "#00ff87"
-            ? fallbackColors[index % fallbackColors.length]
-            : u.avatar_color;
-          const capName = u.display_name.replace(/\b\w/g, c => c.toUpperCase());
+      const DEFAULT_FRIENDS = [
+        { name: "Jayant", display_name: "jayant", email: "jayant@gmail.com", color: "#00ff87", initials: "JY" },
+        { name: "Krish", display_name: "krish", email: "krish@gmail.com", color: "#38bdf8", initials: "KR" },
+        { name: "Arshita", display_name: "arshita", email: "arshita@gmail.com", color: "#a78bfa", initials: "AR" }
+      ];
+
+      const next = DEFAULT_FRIENDS.map((df, index) => {
+        const dbUser = dbUsers.find((u) => u.display_name.toLowerCase() === df.display_name);
+        if (dbUser) {
+          const goal = dbGoals.find((g) => g.user_id === dbUser.id) || {};
           return {
-            id: u.id,
-            name: capName,
-            display_name: u.display_name,
-            initials: initials(u.display_name),
-            color: color,
-            avatar_color: u.avatar_color,
+            id: dbUser.id,
+            name: dbUser.display_name.replace(/\b\w/g, c => c.toUpperCase()),
+            display_name: dbUser.display_name,
+            initials: initials(dbUser.display_name),
+            color: dbUser.avatar_color === "#00ff87" ? df.color : dbUser.avatar_color,
+            avatar_color: dbUser.avatar_color,
             dailyGoal: goal.daily_target ?? 2,
             longGoal: goal.long_term_target ?? 300,
-            deadline: goal.long_term_deadline
+            deadline: goal.long_term_deadline,
+            isMock: false
           };
-        })
-        .filter((u) => u.display_name.toLowerCase() !== "admin");
+        } else {
+          return {
+            id: `mock-${df.display_name}`,
+            name: df.name,
+            display_name: df.display_name,
+            initials: df.initials,
+            color: df.color,
+            avatar_color: df.color,
+            dailyGoal: 2,
+            longGoal: 300,
+            deadline: null,
+            isMock: true
+          };
+        }
+      });
+
       saveJson(OFFLINE_KEY, { friends: next });
       setFriends(next);
     } catch {

@@ -1581,6 +1581,9 @@ function AdminGoalsManager({ friends, reloadFriends, toast }) {
 
   const save = async (e) => {
     e.preventDefault();
+    if (selectedUserId && selectedUserId.startsWith("mock-")) {
+      return toast(`This contestant (${selectedFriend.name}) has not registered yet. Please log in as them once using their shortcut button to activate their database profile.`);
+    }
     setUpdating(true);
     try {
       await updateGoal({
@@ -1674,6 +1677,9 @@ function AdminProfileManager({ friends, reloadFriends, toast }) {
 
   const save = async (e) => {
     e.preventDefault();
+    if (selectedUserId && selectedUserId.startsWith("mock-")) {
+      return toast(`This contestant (${selectedFriend.name}) has not registered yet. Please log in as them once using their shortcut button to activate their database profile.`);
+    }
     if (!displayName.trim()) return toast("Display name is required.");
     setUpdating(true);
     try {
