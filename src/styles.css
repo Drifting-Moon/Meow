@@ -2,10 +2,10 @@
 
 :root {
   color-scheme: dark;
-  --bg: #0f1115;
-  --panel: #16171b;
-  --panel-2: #202124;
-  --line: rgba(255, 255, 255, 0.05);
+  --bg: #070a18;
+  --panel: rgba(12, 18, 35, 0.78);
+  --panel-2: rgba(24, 33, 58, 0.82);
+  --line: rgba(226, 232, 240, 0.1);
   --text: #f3f4f6;
   --muted: #a1a1aa;
   --green: #10b981;
@@ -18,13 +18,42 @@ html { scroll-behavior: smooth; }
 body {
   margin: 0;
   min-width: 320px;
-  background: var(--bg);
+  background:
+    radial-gradient(circle at 12% 14%, rgba(34, 211, 238, 0.23), transparent 30vw),
+    radial-gradient(circle at 86% 8%, rgba(167, 139, 250, 0.28), transparent 32vw),
+    radial-gradient(circle at 58% 84%, rgba(16, 185, 129, 0.18), transparent 34vw),
+    linear-gradient(135deg, #060816 0%, #10152b 42%, #071829 100%);
+  background-attachment: fixed;
   color: var(--text);
   font-family: "Bricolage Grotesque", Inter, system-ui, sans-serif;
 }
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+}
+body::before {
+  background:
+    radial-gradient(circle at 18% 64%, rgba(45, 212, 191, 0.18), transparent 28vw),
+    radial-gradient(circle at 82% 54%, rgba(251, 113, 133, 0.16), transparent 26vw),
+    radial-gradient(circle at 48% 18%, rgba(96, 165, 250, 0.18), transparent 30vw);
+  filter: blur(16px);
+}
+body::after {
+  z-index: -1;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.026) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: radial-gradient(circle at 50% 20%, black, transparent 76%);
+  opacity: 0.45;
+}
 button, input, textarea, select { font: inherit; }
 button { cursor: pointer; color: inherit; }
-main { min-height: 100vh; position: relative; overflow-x: hidden; }
+main { min-height: 100vh; position: relative; overflow-x: hidden; isolation: isolate; }
 
 .page { width: min(1480px, calc(100% - 32px)); margin: 0 auto; padding: 96px 0 48px; }
 .top-nav {

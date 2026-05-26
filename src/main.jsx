@@ -52,7 +52,7 @@ const COLORS = ["#00ff87", "#38bdf8", "#a78bfa", "#fbbf24", "#fb7185", "#2dd4bf"
 const LOGIN_SHORTCUTS_KEY = "meow:friend-login-shortcuts:v1";
 const DEFAULT_LOGIN_SHORTCUTS = [
   { name: "Jayant", email: "jayant@gmail.com", password: "Jayant", color: COLORS[0] },
-  { name: "krish", email: "krish@gmail.com", password: "krish", color: COLORS[1] },
+  { name: "krish", email: "krish@gmail.com", password: "Krish", color: COLORS[1] },
   { name: "Arshita", email: "arshita@gmail.com", password: "Arshita", color: COLORS[2] }
 ];
 const DIFFICULTIES = {
@@ -88,10 +88,10 @@ function calculateEstimatedDoneDate(friend, startDateStr = "2026-05-20") {
 
   const diffTime = Math.abs(today - start);
   const daysPassed = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-  
+
   const solved = friend.totalSolved || 0;
   const target = friend.longGoal || 300;
-  
+
   if (solved >= target) {
     return { estString: "Completed! 🎉", paceStatus: "🚀 Ahead of schedule", paceColor: "var(--green)" };
   }
@@ -100,7 +100,7 @@ function calculateEstimatedDoneDate(friend, startDateStr = "2026-05-20") {
   const expectedSolved = (friend.dailyGoal || 2) * daysPassed;
   let paceStatus = "";
   let paceColor = "";
-  
+
   if (solved >= expectedSolved) {
     paceStatus = "🚀 Ahead of schedule";
     paceColor = "var(--green)";
@@ -116,13 +116,13 @@ function calculateEstimatedDoneDate(friend, startDateStr = "2026-05-20") {
 
   const remaining = target - solved;
   const daysNeeded = Math.ceil(remaining / dailyPace);
-  
+
   const estDate = new Date();
   estDate.setDate(estDate.getDate() + daysNeeded);
-  
+
   const options = { month: "short", year: "numeric" };
   const formattedDate = estDate.toLocaleDateString("en-US", options);
-  
+
   return {
     estString: `Est. done: ${formattedDate}`,
     paceStatus,
@@ -155,7 +155,7 @@ function GoalProgressCard({ friends }) {
                   <span className="mini-avatar" style={{ "--tag": friend.color, width: "24px", height: "24px", fontSize: "11px" }}>{friend.initials}</span>
                   <b style={{ color: friend.color, fontSize: "13px" }}>{friend.name}</b>
                 </div>
-                
+
                 <div style={{ display: "flex", gap: "12px", alignItems: "center", fontSize: "12px", flexWrap: "wrap" }}>
                   <span className="muted">{solved} / {target} problems ({pct}%)</span>
                   <span className="muted">•</span>
@@ -504,9 +504,9 @@ function StatCard({ icon: Icon, label, value, suffix = "", accent, detail, loadi
 
 function WeeklySummaryCard({ friend, logs }) {
   const today = new Date();
-  const dayOfWeek = today.getDay(); 
-  const daysPassedThisWeek = dayOfWeek === 0 ? 7 : dayOfWeek; 
-  
+  const dayOfWeek = today.getDay();
+  const daysPassedThisWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
+
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const offset = i - (daysPassedThisWeek - 1);
     const d = new Date(today);
@@ -521,7 +521,7 @@ function WeeklySummaryCard({ friend, logs }) {
   });
 
   const weeklyTotal = dailyCounts.slice(0, daysPassedThisWeek).reduce((sum, count) => sum + count, 0);
-  
+
   const dailyGoal = friend.dailyGoal || 2;
   const weeklyTarget = dailyGoal * daysPassedThisWeek;
 
@@ -539,15 +539,15 @@ function WeeklySummaryCard({ friend, logs }) {
 
   if (weeklyTotal >= weeklyTarget && !missedAnyDay) {
     badgeText = "On Track";
-    badgeColor = "#86efac"; 
+    badgeColor = "#86efac";
     badgeBackground = "rgba(34,197,94,0.1)";
   } else if (missedAnyDay) {
     badgeText = "Missed Days";
-    badgeColor = "#fca5a5"; 
+    badgeColor = "#fca5a5";
     badgeBackground = "rgba(239,68,68,0.1)";
   } else {
     badgeText = "Behind";
-    badgeColor = "#fde047"; 
+    badgeColor = "#fde047";
     badgeBackground = "rgba(245,158,11,0.1)";
   }
 
@@ -561,7 +561,7 @@ function WeeklySummaryCard({ friend, logs }) {
     }
   }
 
-  const bestDayLabel = maxSolved > 0 
+  const bestDayLabel = maxSolved > 0
     ? `Your best day: ${["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][bestDayIndex]}`
     : "No solves yet this week";
 
@@ -572,15 +572,15 @@ function WeeklySummaryCard({ friend, logs }) {
           <Award size={18} style={{ color: friend.color }} />
           <span>Weekly Summary</span>
         </div>
-        <span 
-          className="status-pill loaded" 
-          style={{ 
-            margin: 0, 
-            fontSize: "11px", 
-            fontWeight: "700", 
-            background: badgeBackground, 
-            color: badgeColor, 
-            borderColor: badgeColor + "33" 
+        <span
+          className="status-pill loaded"
+          style={{
+            margin: 0,
+            fontSize: "11px",
+            fontWeight: "700",
+            background: badgeBackground,
+            color: badgeColor,
+            borderColor: badgeColor + "33"
           }}
         >
           {badgeText}
@@ -604,13 +604,13 @@ function WeeklySummaryCard({ friend, logs }) {
             const isCompleted = count >= dailyGoal;
             let cellBg = "rgba(255,255,255,0.03)";
             let cellBorder = "1px solid var(--line)";
-            
+
             if (index < daysPassedThisWeek) {
               if (isCompleted) {
                 cellBg = friend.color;
                 cellBorder = `1px solid ${friend.color}`;
               } else if (hasSolved) {
-                cellBg = friend.color + "55"; 
+                cellBg = friend.color + "55";
                 cellBorder = `1px solid ${friend.color}88`;
               } else {
                 cellBg = "rgba(239, 68, 68, 0.08)";
@@ -619,17 +619,17 @@ function WeeklySummaryCard({ friend, logs }) {
             }
 
             return (
-              <div 
-                key={index} 
-                title={`${dayNames[index]}: ${count} problems`} 
-                style={{ 
-                  width: "24px", 
-                  height: "24px", 
-                  borderRadius: "6px", 
-                  background: cellBg, 
+              <div
+                key={index}
+                title={`${dayNames[index]}: ${count} problems`}
+                style={{
+                  width: "24px",
+                  height: "24px",
+                  borderRadius: "6px",
+                  background: cellBg,
                   border: cellBorder,
-                  transition: "all 0.2s ease" 
-                }} 
+                  transition: "all 0.2s ease"
+                }}
               />
             );
           })}
@@ -1625,28 +1625,28 @@ function AdminGoalsManager({ friends, reloadFriends, toast }) {
         <div className="setup-row difficulties" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "12px", alignItems: "end" }}>
           <label style={{ fontSize: "12px", display: "grid", gap: "6px" }}>
             Daily Problem Target
-            <input 
-              type="number" 
-              min="0" 
-              value={form.daily_target} 
-              onChange={(e) => setForm({ ...form, daily_target: e.target.value })} 
+            <input
+              type="number"
+              min="0"
+              value={form.daily_target}
+              onChange={(e) => setForm({ ...form, daily_target: e.target.value })}
             />
           </label>
           <label style={{ fontSize: "12px", display: "grid", gap: "6px" }}>
             Long-term Total Target
-            <input 
-              type="number" 
-              min="0" 
-              value={form.long_term_target} 
-              onChange={(e) => setForm({ ...form, long_term_target: e.target.value })} 
+            <input
+              type="number"
+              min="0"
+              value={form.long_term_target}
+              onChange={(e) => setForm({ ...form, long_term_target: e.target.value })}
             />
           </label>
           <label style={{ fontSize: "12px", display: "grid", gap: "6px" }}>
             Goal Deadline
-            <input 
-              type="date" 
-              value={form.deadline} 
-              onChange={(e) => setForm({ ...form, deadline: e.target.value })} 
+            <input
+              type="date"
+              value={form.deadline}
+              onChange={(e) => setForm({ ...form, deadline: e.target.value })}
             />
           </label>
         </div>
@@ -1719,18 +1719,18 @@ function AdminProfileManager({ friends, reloadFriends, toast }) {
         <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "12px", alignItems: "end" }}>
           <label style={{ fontSize: "12px", display: "grid", gap: "6px" }}>
             Display Name
-            <input 
-              type="text" 
-              value={displayName} 
-              onChange={(e) => setDisplayName(e.target.value)} 
+            <input
+              type="text"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
             />
           </label>
           <label style={{ fontSize: "12px", display: "grid", gap: "6px" }}>
             Theme Color
-            <input 
-              type="color" 
-              value={avatarColor} 
-              onChange={(e) => setAvatarColor(e.target.value)} 
+            <input
+              type="color"
+              value={avatarColor}
+              onChange={(e) => setAvatarColor(e.target.value)}
               style={{ width: "60px", height: "36px", padding: 0, border: "1px solid var(--line)", borderRadius: "8px", cursor: "pointer", background: "transparent" }}
             />
           </label>
