@@ -1498,14 +1498,15 @@ function Select({ value, onChange, friends }) {
 }
 
 function SettingsDrawer({ open, onClose, profile, auth, reloadFriends, toast }) {
-  const [form, setForm] = useState({ display_name: "", avatar_color: COLORS[0] });
+  const [form, setForm] = useState({ display_name: "", avatar_color: COLORS[0], password: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
     if (!open) return;
     setForm({
       display_name: profile?.display_name || "",
-      avatar_color: profile?.avatar_color || COLORS[0]
+      avatar_color: profile?.avatar_color || COLORS[0],
+      password: ""
     });
   }, [open, profile]);
   const save = async (e) => {
@@ -1514,8 +1515,24 @@ function SettingsDrawer({ open, onClose, profile, auth, reloadFriends, toast }) 
     setError("");
     try {
       await auth.updateProfile({ display_name: form.display_name.trim(), avatar_color: form.avatar_color });
+      
+      if (form.password.trim()) {
+        const newPassword = form.password.trim();
+        const { error: authErr } = await supabase.auth.updateUser({ password: newPassword });
+        if (authErr) throw authErr;
+
+        const { error: shortcutErr } = await supabase
+          .from("login_shortcuts")
+          .update({ password: newPassword })
+          .eq("email", auth.user.email);
+        if (shortcutErr) throw shortcutErr;
+        
+        toast("Saved profile and updated password!");
+      } else {
+        toast("Saved profile settings.");
+      }
+
       await reloadFriends();
-      toast("Saved profile settings.");
       onClose();
     } catch (err) {
       setError(err.message || "Could not save settings.");
@@ -1529,6 +1546,7 @@ function SettingsDrawer({ open, onClose, profile, auth, reloadFriends, toast }) 
       <h3>Profile</h3>
       <label>Display name<input required value={form.display_name} onChange={(e) => setForm({ ...form, display_name: e.target.value })} /></label>
       <label>Avatar color<input type="color" value={form.avatar_color} onChange={(e) => setForm({ ...form, avatar_color: e.target.value })} /></label>
+      <label>New Password (Optional)<input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Leave blank to keep current password" /></label>
       {error && <p className="error-text">{error}</p>}
       <button className="primary" disabled={saving}>{saving ? "Saving..." : "Save Settings"}</button>
     </motion.form>
@@ -2034,10 +2052,14 @@ function App() {
   useEffect(() => {
     if (auth.user?.id) {
       setActiveId(auth.user.id);
-    } else if (hydratedStats.length && !hydratedStats.find((f) => f.id === activeId)) {
-      setActiveId(hydratedStats[0].id);
     }
-  }, [auth.user?.id, hydratedStats, activeId]);
+  }, [auth.user?.id]);
+
+  useEffect(() => {
+    if (hydratedStats.length && !hydratedStats.find((f) => f.id === activeId)) {
+      setActiveId(auth.user?.id || hydratedStats[0].id);
+    }
+  }, [hydratedStats, activeId, auth.user?.id]);
 
   useEffect(() => {
     if (lastRealtimeLog && lastRealtimeLog.user_id !== auth.user?.id) setToast("Logged by a friend just now");
