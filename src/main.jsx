@@ -1518,14 +1518,28 @@ function SettingsDrawer({ open, onClose, profile, auth, reloadFriends, toast }) 
       
       if (form.password.trim()) {
         const newPassword = form.password.trim();
+        
+        // 1. Update the password client-side using Supabase Auth (standard API, no RPC/SQL setup needed!)
         const { error: authErr } = await supabase.auth.updateUser({ password: newPassword });
         if (authErr) throw authErr;
-
-        const { error: shortcutErr } = await supabase
+        
+        // 2. Update the password in the public.login_shortcuts database table
+        const { error: dbErr } = await supabase
           .from("login_shortcuts")
           .update({ password: newPassword })
           .eq("email", auth.user.email);
-        if (shortcutErr) throw shortcutErr;
+        if (dbErr) console.warn("Failed to update shortcut card in database:", dbErr);
+
+        // 3. Keep local storage shortcut card in sync immediately
+        const savedShortcuts = loadJson(LOGIN_SHORTCUTS_KEY, null);
+        if (savedShortcuts) {
+          const updated = savedShortcuts.map((item) =>
+            item.email.toLowerCase() === auth.user.email.toLowerCase()
+              ? { ...item, password: newPassword }
+              : item
+          );
+          saveJson(LOGIN_SHORTCUTS_KEY, updated);
+        }
         
         toast("Saved profile and updated password!");
       } else {
@@ -1682,6 +1696,7 @@ function AdminProfileManager({ friends, reloadFriends, toast }) {
   const [selectedUserId, setSelectedUserId] = useState(friends[0]?.id || "");
   const [displayName, setDisplayName] = useState("");
   const [avatarColor, setAvatarColor] = useState("#38bdf8");
+  const [password, setPassword] = useState("");
   const [updating, setUpdating] = useState(false);
 
   const selectedFriend = friends.find((f) => f.id === selectedUserId);
@@ -1690,6 +1705,7 @@ function AdminProfileManager({ friends, reloadFriends, toast }) {
     if (selectedFriend) {
       setDisplayName(selectedFriend.name || "");
       setAvatarColor(selectedFriend.color || "#38bdf8");
+      setPassword("");
     }
   }, [selectedFriend]);
 
@@ -1701,15 +1717,64 @@ function AdminProfileManager({ friends, reloadFriends, toast }) {
     if (!displayName.trim()) return toast("Display name is required.");
     setUpdating(true);
     try {
+      // 1. Update Profile display name and color
       const { error } = await supabase.from("users").update({
         display_name: displayName.trim(),
         avatar_color: avatarColor
       }).eq("id", selectedUserId);
       if (error) throw error;
+
+      // 2. Update Password if specified
+      if (password.trim()) {
+        const targetEmail = selectedFriend.email || (selectedFriend.display_name.toLowerCase() + "@gmail.com");
+        const nextPassword = password.trim();
+
+        // A. Update the password in public.login_shortcuts first (accessible client-side!)
+        const { error: dbErr } = await supabase
+          .from("login_shortcuts")
+          .update({ password: nextPassword })
+          .eq("email", targetEmail);
+        if (dbErr) console.warn("Failed to update shortcut card in database:", dbErr);
+
+        // B. Keep local storage shortcut card in sync immediately
+        const savedShortcuts = loadJson(LOGIN_SHORTCUTS_KEY, null);
+        if (savedShortcuts) {
+          const updated = savedShortcuts.map((item) =>
+            item.email.toLowerCase() === targetEmail.toLowerCase()
+              ? { ...item, password: nextPassword }
+              : item
+          );
+          saveJson(LOGIN_SHORTCUTS_KEY, updated);
+        }
+
+        // C. Try to update standard Supabase Auth using the change_user_password RPC
+        let rpcSuccess = false;
+        try {
+          const { error: rpcErr } = await supabase.rpc("change_user_password", {
+            target_email: targetEmail,
+            new_password: nextPassword
+          });
+          if (!rpcErr) {
+            rpcSuccess = true;
+          } else {
+            console.warn("RPC change_user_password failed:", rpcErr);
+          }
+        } catch (rpcCatch) {
+          console.warn("RPC change_user_password caught error:", rpcCatch);
+        }
+
+        if (rpcSuccess) {
+          toast(`Updated profile and set new password for ${displayName.trim()}!`);
+        } else {
+          toast(`Updated profile & shortcut card for ${displayName.trim()}! (Note: Auth password requires SQL function script to be run in Supabase)`);
+        }
+      } else {
+        toast(`Updated profile for ${displayName.trim()}!`);
+      }
+
       await reloadFriends();
-      toast(`Updated profile for ${displayName.trim()}!`);
     } catch (err) {
-      toast("Could not update profile.");
+      toast("Could not update profile or password.");
     } finally {
       setUpdating(false);
     }
@@ -1720,7 +1785,7 @@ function AdminProfileManager({ friends, reloadFriends, toast }) {
       <div className="section-head" style={{ marginBottom: "14px" }}>
         <div>
           <h2 style={{ fontSize: "15px", fontWeight: "800", margin: 0 }}>Configure Contestant Profiles</h2>
-          <p className="muted" style={{ fontSize: "12px", margin: "4px 0 0 0" }}>Modify display names and theme colors of contestants directly.</p>
+          <p className="muted" style={{ fontSize: "12px", margin: "4px 0 0 0" }}>Modify display names, theme colors, and passwords of contestants directly.</p>
         </div>
         <User size={18} />
       </div>
@@ -1757,6 +1822,16 @@ function AdminProfileManager({ friends, reloadFriends, toast }) {
             />
           </label>
         </div>
+
+        <label style={{ fontSize: "12px", display: "grid", gap: "6px" }}>
+          Reset Password (Optional)
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Type a new password to reset it on the site"
+          />
+        </label>
 
         <button className="primary" disabled={updating} style={{ height: "36px", fontSize: "12px", width: "fit-content", marginTop: "4px" }}>
           {updating ? "Saving..." : "Update Contestant Profile"}

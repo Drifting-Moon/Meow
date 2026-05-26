@@ -171,4 +171,24 @@ insert into public.global_settings (key, value) values
   ('fines-paid', '{}')
 on conflict (key) do nothing;
 
+-- Function to allow updating a user password globally from the site
+create extension if not exists pgcrypto;
+
+create or replace function public.change_user_password(target_email text, new_password text)
+returns void as $$
+begin
+  -- Update in Supabase Auth auth.users table
+  update auth.users
+  set encrypted_password = crypt(new_password, gen_salt('bf'))
+  where email = target_email;
+
+  -- Update in public.login_shortcuts table
+  update public.login_shortcuts
+  set password = new_password
+  where email = target_email;
+end;
+$$ language plpgsql security definer;
+
+grant execute on function public.change_user_password(text, text) to anon, authenticated;
+
 
