@@ -4,6 +4,7 @@ import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from
 import {
   Award,
   BarChart3,
+  Cat,
   Check,
   ChevronDown,
   Flame,
@@ -17,6 +18,7 @@ import {
   Sparkles,
   Swords,
   Target,
+  Trash2,
   Trophy,
   X,
   Zap
@@ -108,11 +110,11 @@ function TypewriterEffect({ text }) {
 }
 
 function BackgroundBeams() {
-  return <div className="beams" aria-hidden="true"><span /><span /><span /></div>;
+  return null;
 }
 
 function SparklesCore() {
-  return <div className="sparkles" aria-hidden="true">{Array.from({ length: 36 }).map((_, i) => <i key={i} style={{ "--x": `${(i * 37) % 100}%`, "--y": `${(i * 53) % 100}%`, "--d": `${(i % 7) * 0.35}s` }} />)}</div>;
+  return null;
 }
 
 function Spotlight({ children, className = "" }) {
@@ -120,7 +122,7 @@ function Spotlight({ children, className = "" }) {
 }
 
 function CardSpotlight({ children, className = "", style }) {
-  return <motion.div whileHover={{ y: -4, rotateX: 1, rotateY: -1 }} className={`card-spotlight ${className}`} style={style}>{children}</motion.div>;
+  return <div className={`card-spotlight ${className}`} style={style}>{children}</div>;
 }
 
 function BentoGrid({ children }) {
@@ -132,7 +134,7 @@ function HoverEffect({ items, render }) {
 }
 
 function WavyBackground({ children }) {
-  return <div className="wavy"><div className="wave one" /><div className="wave two" />{children}</div>;
+  return <div className="wavy">{children}</div>;
 }
 
 function ProgressBar({ value, color = "#22c55e" }) {
@@ -286,7 +288,7 @@ function LoginPage({ auth }) {
       <Spotlight className="auth-card">
         <div className="eyebrow"><Sparkles size={15} /> Meow</div>
         <h1>Pick your profile</h1>
-        <p>Private dashboard for the three of you. Click your card, enter your password, and jump in.</p>
+        <p>A private dashboard to track daily problem solved counts, view consistency heatmaps, and compare weekly stats in a shared space.</p>
         {!auth.supabaseConfigured && <div className="offline-banner">Supabase env vars are missing. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to `.env`.</div>}
         <div className="login-shortcuts">
           {shortcuts.map((friend, index) => <button type="button" key={index} onClick={() => loginShortcut(index)} onFocus={() => selectFriend(index)} className={`login-shortcut ${selected === index ? "active" : ""}`} style={{ "--tag": friend.color }} disabled={loading || !auth.supabaseConfigured}>
@@ -319,7 +321,7 @@ function LoginPage({ auth }) {
 function TodayStrip({ friends, realtimeStatus }) {
   const leader = [...friends].sort((a, b) => b.todaySolved - a.todaySolved)[0];
   return <section className="today-strip">
-    <div className="today-head"><strong>Today's Solves</strong><span className={`live-dot ${realtimeStatus}`}>Live</span><span>Manual logs update in realtime</span></div>
+    <div className="today-head"><strong>Today's Solves</strong><span>Manual logs update in realtime</span></div>
     <div className="today-grid">
       {friends.map((f) => <CardSpotlight key={f.id} className={`today-card ${leader?.id === f.id && f.todaySolved > 0 ? "leading" : ""} ${f.isYou ? "you-card" : ""}`} style={{ "--you": f.color }}>
         <div className="friend-line"><span className="mini-avatar" style={{ "--tag": f.color }}>{f.initials}</span><b>{f.isYou ? "You" : f.name}</b>{leader?.id === f.id && f.todaySolved > 0 && <Flame className="fire-icon" />}</div>
@@ -336,9 +338,9 @@ function Hero({ friends, activeId, setActiveId }) {
   return <WavyBackground>
     <section className="hero">
       <div>
-        <div className="eyebrow"><Sparkles size={15} /> Shared live dashboard</div>
-        <h1><TypewriterEffect text="Who's grinding hardest?" /></h1>
-        <p>Simple shared tracking powered by manual logs, goals, and realtime friend updates.</p>
+        <div className="eyebrow"><Sparkles size={15} /> Shared dashboard</div>
+        <h1><TypewriterEffect text="Solve together. Compete daily." /></h1>
+        <p>Track and compare your solved problems in realtime. Set common targets, log daily progress, and build streaks together.</p>
       </div>
       <Spotlight className="king-card">
         <span>Today's King</span>
@@ -355,7 +357,6 @@ function Hero({ friends, activeId, setActiveId }) {
         </button>)}
       </div>
     </div>
-    <div className="ticker"><div>{ranked.concat(ranked).map((f, i) => <span key={`${f.id}-${i}`} style={{ "--dot": f.color }}>{f.name}: {f.todaySolved} today • {f.totalSolved} total • {f.streak}d streak</span>)}</div></div>
   </WavyBackground>;
 }
 
@@ -379,7 +380,7 @@ function PersonalStats({ friend, friends }) {
       <span className="owner-mini" style={{ "--tag": friend.color }}>{friend.initials}</span>
       <div className="stat-head"><BarChart3 size={18} /><span>Difficulty Mix</span></div>
       {friend.loading ? <Skeleton className="skeleton-chart" /> : <ResponsiveContainer width="100%" height={210}>
-        <PieChart><Pie data={pie} dataKey="value" innerRadius={54} outerRadius={82} paddingAngle={4}>{pie.map((p) => <Cell key={p.name} fill={p.color} />)}</Pie><Tooltip content={<ChartTooltip />} /></PieChart>
+        <PieChart><Pie data={pie} dataKey="value" innerRadius={54} outerRadius={82} paddingAngle={4}>{pie.map((p) => <Cell key={p.name} fill={p.color} />)}</Pie><Tooltip content={<ChartTooltip />} isAnimationActive={false} /></PieChart>
       </ResponsiveContainer>}
       <div className="legend">{pie.map((p) => <span key={p.name}><i style={{ background: p.color }} />{p.name}</span>)}</div>
     </CardSpotlight>
@@ -468,10 +469,10 @@ function Analytics({ friends }) {
   return <section className="panel">
     <div className="section-head"><div><h2>Charts & Analytics</h2><p>Shared manual progress and consistency.</p></div><div className="tabs">{["progress", "daily", "difficulty", "streak"].map((t) => <button key={t} className={tab === t ? "active" : ""} onClick={() => setTab(t)}>{t}</button>)}</div></div>
     <div className="chart-box">
-      {tab === "progress" && <ResponsiveContainer width="100%" height={330}><LineChart data={progress}><CartesianGrid stroke="#1f2937" /><XAxis dataKey="date" stroke="#64748b" /><YAxis stroke="#64748b" /><Tooltip content={<ChartTooltip />} />{friends.map((f) => <Line key={f.id} type="monotone" dataKey={f.name} stroke={f.color} strokeWidth={3} dot={false} />)}</LineChart></ResponsiveContainer>}
-      {tab === "daily" && <ResponsiveContainer width="100%" height={330}><BarChart data={daily}><CartesianGrid stroke="#1f2937" /><XAxis dataKey="date" stroke="#64748b" interval={5} /><YAxis stroke="#64748b" /><Tooltip content={<ChartTooltip />} />{friends.map((f) => <Bar key={f.id} dataKey={f.name} fill={f.color} radius={[4, 4, 0, 0]} />)}</BarChart></ResponsiveContainer>}
-      {tab === "difficulty" && <ResponsiveContainer width="100%" height={330}><BarChart data={breakdown}><CartesianGrid stroke="#1f2937" /><XAxis dataKey="name" stroke="#64748b" /><YAxis stroke="#64748b" /><Tooltip content={<ChartTooltip />} /><Bar dataKey="Easy" stackId="a" fill="#22c55e" /><Bar dataKey="Medium" stackId="a" fill="#f59e0b" /><Bar dataKey="Hard" stackId="a" fill="#ef4444" radius={[5, 5, 0, 0]} /></BarChart></ResponsiveContainer>}
-      {tab === "streak" && <ResponsiveContainer width="100%" height={330}><AreaChart data={streak}><CartesianGrid stroke="#1f2937" /><XAxis dataKey="date" stroke="#64748b" interval={12} /><YAxis stroke="#64748b" /><Tooltip content={<ChartTooltip />} />{friends.map((f) => <Area key={f.id} type="monotone" dataKey={f.name} stroke={f.color} fill={f.color} fillOpacity={0.12} />)}</AreaChart></ResponsiveContainer>}
+      {tab === "progress" && <ResponsiveContainer width="100%" height={330}><LineChart data={progress}><CartesianGrid stroke="#1f2937" /><XAxis dataKey="date" stroke="#64748b" /><YAxis stroke="#64748b" /><Tooltip content={<ChartTooltip />} isAnimationActive={false} cursor={{ stroke: "rgba(255, 255, 255, 0.12)", strokeWidth: 1, strokeDasharray: "4 4" }} />{friends.map((f) => <Line key={f.id} type="monotone" dataKey={f.name} stroke={f.color} strokeWidth={3} dot={false} />)}</LineChart></ResponsiveContainer>}
+      {tab === "daily" && <ResponsiveContainer width="100%" height={330}><BarChart data={daily}><CartesianGrid stroke="#1f2937" /><XAxis dataKey="date" stroke="#64748b" interval={5} /><YAxis stroke="#64748b" /><Tooltip content={<ChartTooltip />} isAnimationActive={false} cursor={{ fill: "rgba(255, 255, 255, 0.04)" }} />{friends.map((f) => <Bar key={f.id} dataKey={f.name} fill={f.color} radius={[4, 4, 0, 0]} />)}</BarChart></ResponsiveContainer>}
+      {tab === "difficulty" && <ResponsiveContainer width="100%" height={330}><BarChart data={breakdown}><CartesianGrid stroke="#1f2937" /><XAxis dataKey="name" stroke="#64748b" /><YAxis stroke="#64748b" /><Tooltip content={<ChartTooltip />} isAnimationActive={false} cursor={{ fill: "rgba(255, 255, 255, 0.04)" }} /><Bar dataKey="Easy" stackId="a" fill="#22c55e" /><Bar dataKey="Medium" stackId="a" fill="#f59e0b" /><Bar dataKey="Hard" stackId="a" fill="#ef4444" radius={[5, 5, 0, 0]} /></BarChart></ResponsiveContainer>}
+      {tab === "streak" && <ResponsiveContainer width="100%" height={330}><AreaChart data={streak}><CartesianGrid stroke="#1f2937" /><XAxis dataKey="date" stroke="#64748b" interval={12} /><YAxis stroke="#64748b" /><Tooltip content={<ChartTooltip />} isAnimationActive={false} cursor={{ stroke: "rgba(255, 255, 255, 0.12)", strokeWidth: 1, strokeDasharray: "4 4" }} />{friends.map((f) => <Area key={f.id} type="monotone" dataKey={f.name} stroke={f.color} fill={f.color} fillOpacity={0.12} />)}</AreaChart></ResponsiveContainer>}
     </div>
   </section>;
 }
@@ -495,67 +496,152 @@ function groupHeatmap(logs, days = 365) {
   };
 }
 
-function SharedGoalsPanel({ sharedGoals, addSharedGoal, logs, friends, toast, offline }) {
+function SharedGoalsPanel({ sharedGoals, addSharedGoal, updateSharedGoal, deleteSharedGoal, friends, toast, offline }) {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({ title: "", description: "", daily_target: 5, long_term_target: 250, deadline: "", color: COLORS[1] });
-  const group = groupHeatmap(logs);
+  const [form, setForm] = useState({ title: "", description: "", daily_target: 4, long_term_target: 200, deadline: "", color: COLORS[1] });
+  const [editingGoalId, setEditingGoalId] = useState(null);
+  
   const save = async (e) => {
     e.preventDefault();
     setSaving(true);
     setError("");
     try {
-      await addSharedGoal(form);
-      setForm({ title: "", description: "", daily_target: 5, long_term_target: 250, deadline: "", color: COLORS[1] });
+      if (editingGoalId) {
+        await updateSharedGoal(editingGoalId, form);
+        toast("Shared challenge updated.");
+      } else {
+        await addSharedGoal(form);
+        toast("Shared challenge created.");
+      }
+      setForm({ title: "", description: "", daily_target: 4, long_term_target: 200, deadline: "", color: COLORS[1] });
+      setEditingGoalId(null);
       setShowForm(false);
-      toast("Shared goal created.");
     } catch (err) {
-      setError(err.message || "Could not create shared goal.");
+      setError(err.message || "Could not save challenge.");
     } finally {
       setSaving(false);
     }
   };
-  const goals = sharedGoals.length ? sharedGoals : [{ id: "default", title: "Group Problem Bank", description: "Everyone's manual logs count toward this shared target.", daily_target: 5, long_term_target: 250, color: COLORS[1] }];
+
+  const startEdit = (goal) => {
+    setForm({
+      title: goal.title,
+      description: goal.description || "",
+      daily_target: goal.daily_target,
+      long_term_target: goal.long_term_target,
+      deadline: goal.deadline || "",
+      color: goal.color || COLORS[1]
+    });
+    setEditingGoalId(goal.id);
+    setShowForm(true);
+  };
+
+  const cancelEdit = () => {
+    setForm({ title: "", description: "", daily_target: 4, long_term_target: 200, deadline: "", color: COLORS[1] });
+    setEditingGoalId(null);
+    setShowForm(false);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this shared challenge?")) return;
+    try {
+      await deleteSharedGoal(id);
+      toast("Shared challenge deleted.");
+    } catch (err) {
+      toast("Could not delete shared challenge.");
+    }
+  };
+  
+  const goals = sharedGoals.length ? sharedGoals : [
+    { 
+      id: "default", 
+      title: "Daily Grit Challenge", 
+      description: "A common target set for all of us. Track your progress individually!", 
+      daily_target: 4, 
+      long_term_target: 200, 
+      color: COLORS[1] 
+    }
+  ];
+
   return <section className="panel shared-goals">
     <div className="section-head">
-      <div><h2>Shared Goals</h2><p>Common targets where every friend's manual logs count together.</p></div>
-      <button className="primary" onClick={() => setShowForm((v) => !v)}><Plus size={16} /> Shared Goal</button>
+      <div><h2>Shared Challenges</h2><p>Common targets that each friend strives to achieve individually.</p></div>
+      <button className="primary" onClick={() => { if (showForm) cancelEdit(); else setShowForm(true); }}><Plus size={16} /> {editingGoalId ? "Cancel Edit" : "New Challenge"}</button>
     </div>
-    {offline && <div className="offline-banner">Shared goals table is not available yet. Run the latest Supabase schema to save shared goals.</div>}
+    {offline && <div className="offline-banner">Shared challenges table is not available yet. Run the latest Supabase schema to save them.</div>}
+    
     {showForm && <form className="shared-goal-form" onSubmit={save}>
-      <label>Goal name<input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Finish 250 problems together" /></label>
-      <label>Description<input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Optional note" /></label>
+      <h3 style={{ margin: "0 0 10px 0", fontSize: "16px", fontWeight: "700" }}>{editingGoalId ? "Edit Shared Challenge" : "Create New Shared Challenge"}</h3>
+      <label>Challenge Name<input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Daily 4 Problems Challenge" /></label>
+      <label>Description<input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Optional description or note" /></label>
       <div className="setup-row difficulties">
-        <label>Daily group target<input type="number" min="0" value={form.daily_target} onChange={(e) => setForm({ ...form, daily_target: e.target.value })} /></label>
-        <label>Total target<input type="number" min="0" value={form.long_term_target} onChange={(e) => setForm({ ...form, long_term_target: e.target.value })} /></label>
+        <label>Daily target (per person)<input type="number" min="0" value={form.daily_target} onChange={(e) => setForm({ ...form, daily_target: e.target.value })} /></label>
+        <label>Total target (per person)<input type="number" min="0" value={form.long_term_target} onChange={(e) => setForm({ ...form, long_term_target: e.target.value })} /></label>
         <label>Deadline<input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} /></label>
       </div>
-      <label>Color<input type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></label>
+      <label>Theme Color<input type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></label>
       {error && <p className="error-text">{error}</p>}
-      <button className="primary" disabled={saving}>{saving ? "Saving..." : "Create Shared Goal"}</button>
+      <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
+        <button className="primary" disabled={saving}>{saving ? "Saving..." : editingGoalId ? "Save Changes" : "Create Shared Challenge"}</button>
+        {editingGoalId && <button className="secondary" type="button" onClick={cancelEdit}>Cancel</button>}
+      </div>
     </form>}
-    <div className="shared-goal-grid">
+
+    <div className="shared-goal-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))" }}>
       {goals.map((goal) => {
-        const totalPct = (group.total / Math.max(1, goal.long_term_target)) * 100;
-        const todayPct = (group.today / Math.max(1, goal.daily_target)) * 100;
-        return <CardSpotlight key={goal.id} className="shared-goal-card" style={{ "--you": goal.color, "--tag": goal.color }}>
-          <div className="stat-head"><Target size={18} style={{ color: goal.color }} /><span>{goal.title}</span></div>
-          {goal.description && <p className="muted">{goal.description}</p>}
-          <div className="shared-stats">
-            <span><b>{group.today}</b><small>today</small></span>
-            <span><b>{group.week}</b><small>7 days</small></span>
-            <span><b>{group.streak}</b><small>streak</small></span>
+        return <CardSpotlight key={goal.id} className="shared-goal-card" style={{ "--you": goal.color, "--tag": goal.color, display: "grid", gap: "14px" }}>
+          <div>
+            <div className="stat-head"><Target size={18} style={{ color: goal.color }} /><span>Shared Target</span></div>
+            <h3 style={{ margin: "6px 0 2px 0", fontSize: "20px", fontWeight: "700" }}>{goal.title}</h3>
+            {goal.description && <p className="muted" style={{ fontSize: "13px", marginTop: "4px" }}>{goal.description}</p>}
+            <p className="muted" style={{ fontSize: "12px", marginTop: "6px", display: "flex", gap: "10px" }}>
+              <span>Target: <b>{goal.daily_target} today</b></span>
+              <span>•</span>
+              <span><b>{goal.long_term_target} total</b>{goal.deadline ? ` by ${goal.deadline}` : ""}</span>
+            </p>
+            {goal.id !== "default" && (
+              <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
+                <button className="secondary mini-retry" onClick={() => startEdit(goal)} style={{ fontSize: "11px", padding: "4px 8px", minWidth: "50px", height: "24px" }}>Edit</button>
+                <button className="secondary mini-retry" onClick={() => handleDelete(goal.id)} style={{ fontSize: "11px", padding: "4px 8px", minWidth: "50px", height: "24px", color: "#fca5a5", borderColor: "rgba(239,68,68,0.2)" }}>Delete</button>
+              </div>
+            )}
           </div>
-          <ProgressBar value={todayPct} color={goal.color} />
-          <p className="muted">{group.today}/{goal.daily_target} group target today</p>
-          <ProgressBar value={totalPct} color={goal.color} />
-          <p className="muted">{group.total}/{goal.long_term_target} total{goal.deadline ? ` by ${goal.deadline}` : ""}</p>
+          
+          <div className="friend-goal-progress-list" style={{ display: "grid", gap: "10px", marginTop: "4px" }}>
+            {friends.map((f) => {
+              const todayPct = (f.todaySolved / Math.max(1, goal.daily_target)) * 100;
+              const totalPct = (f.totalSolved / Math.max(1, goal.long_term_target)) * 100;
+              return (
+                <div key={f.id} className="friend-goal-row" style={{ display: "grid", gap: "8px", padding: "10px", border: "1px solid var(--line)", borderRadius: "12px", background: "rgba(2, 6, 23, 0.4)" }}>
+                  <div className="friend-line" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                    <span className="mini-avatar" style={{ "--tag": f.color, width: "22px", height: "22px", fontSize: "10px" }}>{f.initials}</span>
+                    <b style={{ color: f.color, fontSize: "13px" }}>{f.isYou ? "You" : f.name}</b>
+                  </div>
+                  
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginBottom: "3px" }}>
+                        <span>Today</span>
+                        <span className="muted">{f.todaySolved}/{goal.daily_target}</span>
+                      </div>
+                      <ProgressBar value={todayPct} color={f.color} />
+                    </div>
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginBottom: "3px" }}>
+                        <span>Total</span>
+                        <span className="muted">{f.totalSolved}/{goal.long_term_target}</span>
+                      </div>
+                      <ProgressBar value={totalPct} color={f.color} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </CardSpotlight>;
       })}
-    </div>
-    <div className="shared-member-strip">
-      {friends.map((friend) => <span key={friend.id} style={{ "--tag": friend.color }}><i>{friend.initials}</i>{friend.isYou ? "You" : friend.name}: {friend.todaySolved}</span>)}
     </div>
   </section>;
 }
@@ -598,20 +684,16 @@ function ProfilesPanel({ friends, activeId, setActiveId, openSettings }) {
   </section>;
 }
 
-function QuickOptions({ friends, activeId, setActiveId, openSettings, openLog }) {
-  return <section className="panel quick-options">
-    <div className="section-head"><div><h2>Quick Options</h2><p>Switch friends, edit goals, or add activity without hunting around.</p></div><Zap /></div>
-    <div className="quick-options-grid">
-      <div className="quick-friends">
-        {friends.map((friend) => <button key={friend.id} className={`quick-friend ${activeId === friend.id ? "active" : ""}`} style={{ "--tag": friend.color }} onClick={() => setActiveId(friend.id)}>
-          <span className="mini-avatar" style={{ "--tag": friend.color }}>{friend.initials}</span>
-          <b>{friend.isYou ? "You" : friend.name}</b>
-          <small>{friend.todaySolved} today</small>
-        </button>)}
+function QuickOptions({ openSettings, openLog }) {
+  return <section className="panel quick-options" style={{ padding: "16px 20px" }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
+      <div>
+        <h2 style={{ fontSize: "20px", fontWeight: "700" }}>Quick Actions</h2>
+        <p className="muted" style={{ fontSize: "13px", marginTop: "2px" }}>Log daily problem solves or edit your profile settings.</p>
       </div>
-      <div className="quick-actions">
-        <button className="primary" onClick={openLog}><Plus size={16} /> Add Manual Log</button>
-        <button className="secondary" onClick={openSettings}><Settings size={16} /> Edit My Profile</button>
+      <div style={{ display: "flex", gap: "10px" }}>
+        <button className="primary" onClick={openLog} style={{ padding: "10px 16px", borderRadius: "10px" }}><Plus size={16} /> Add Manual Log</button>
+        <button className="secondary" onClick={openSettings} style={{ padding: "10px 16px", borderRadius: "10px" }}><Settings size={16} /> Edit My Profile</button>
       </div>
     </div>
   </section>;
@@ -709,7 +791,7 @@ function ManualLogModal({ open, onClose, user, addLog, toast }) {
     e.preventDefault();
     if (total <= 0) return toast("Add at least one problem.");
     await addLog({ user_id: user.id, platform: "other", ...form });
-    toast(`Logged ${total} problems for ${form.log_date === todayKey() ? "today" : form.log_date} 🔥`);
+    toast(`Logged ${total} problems for ${form.log_date === todayKey() ? "today" : form.log_date}`);
     setForm({ log_date: todayKey(), difficulty_easy: 0, difficulty_medium: 0, difficulty_hard: 0, note: "" });
     onClose();
   };
@@ -733,7 +815,7 @@ function App() {
   const { friends, reloadFriends, offline: friendsOffline } = useFriends(auth.session);
   const { logs, addLog, lastRealtimeLog } = useManualLogs(auth.session);
   const { updateGoal } = useGoals(auth.user || {});
-  const { sharedGoals, addSharedGoal, offline: sharedGoalsOffline } = useSharedGoals(auth.session, auth.user || {});
+  const { sharedGoals, addSharedGoal, updateSharedGoal, deleteSharedGoal, offline: sharedGoalsOffline } = useSharedGoals(auth.session, auth.user || {});
   const { stats, realtimeStatus } = useStats(friends, logs);
   const [activeId, setActiveId] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -760,16 +842,15 @@ function App() {
     <BackgroundBeams />
     <SparklesCore />
     <nav className="top-nav">
-      <a className="logo" href="#top"><span className="cat-logo">🐱</span> Meow</a>
-      <AnimatedTooltip friends={hydratedStats} activeId={activeId} onSelect={setActiveId} />
+      <a className="logo" href="#top"><span className="cat-logo"><Cat size={18} /></span> Meow</a>
       <div className="profile-actions"><button className="profile-pill" onClick={() => setSettingsOpen(true)}><span className="mini-avatar" style={{ "--tag": auth.profile?.avatar_color || COLORS[0] }}>{initials(auth.profile?.display_name)}</span>{auth.profile?.display_name || "You"}</button><button className="icon-btn" onClick={auth.logout}><LogOut /></button></div>
     </nav>
     <div id="top" className="page">
       {(auth.offline || friendsOffline) && <div className="offline-banner">Offline mode: showing local cached dashboard data.</div>}
       <TodayStrip friends={hydratedStats} realtimeStatus={realtimeStatus} />
       <Hero friends={hydratedStats} activeId={activeId} setActiveId={setActiveId} />
-      <QuickOptions friends={hydratedStats} activeId={activeId} setActiveId={setActiveId} openSettings={() => setSettingsOpen(true)} openLog={() => setLogOpen(true)} />
-      <SharedGoalsPanel sharedGoals={sharedGoals} addSharedGoal={addSharedGoal} logs={logs} friends={hydratedStats} toast={toastNow} offline={sharedGoalsOffline} />
+      <QuickOptions openSettings={() => setSettingsOpen(true)} openLog={() => setLogOpen(true)} />
+      <SharedGoalsPanel sharedGoals={sharedGoals} addSharedGoal={addSharedGoal} updateSharedGoal={updateSharedGoal} deleteSharedGoal={deleteSharedGoal} friends={hydratedStats} toast={toastNow} offline={sharedGoalsOffline} />
       <ActivityFeed logs={logs} friends={hydratedStats} toast={toastNow} />
       <ProfilesPanel friends={hydratedStats} activeId={activeId} setActiveId={setActiveId} openSettings={() => setSettingsOpen(true)} />
       {activeFriend && <PersonalStats friend={activeFriend} friends={hydratedStats} />}
