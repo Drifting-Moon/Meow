@@ -2152,7 +2152,93 @@ function App() {
     else setLoginOpen(true);
   };
 
-  if (auth.loading) return <main><BackgroundBeams /><SparklesCore /><div className="auth-page"><Skeleton className="skeleton-chart" /></div></main>;
+  if (auth.loading) {
+    return (
+      <main>
+        <BackgroundBeams />
+        <SparklesCore />
+        <div className="auth-page" style={{ padding: "0" }}>
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4 }}
+            className="card-spotlight" 
+            style={{ 
+              width: "100%", 
+              maxWidth: "380px", 
+              padding: "40px 30px", 
+              textAlign: "center", 
+              display: "grid", 
+              gap: "24px", 
+              justifyItems: "center",
+              borderRadius: "28px",
+              background: "rgba(12, 18, 35, 0.65)",
+              border: "1px solid rgba(167, 139, 250, 0.15)",
+              backdropFilter: "blur(20px)",
+              boxShadow: "0 20px 80px rgba(0,0,0,0.5)"
+            }}
+          >
+            <div style={{ position: "relative", width: "80px", height: "80px", display: "grid", placeItems: "center" }}>
+              {/* Cute Spinning outer ring */}
+              <motion.div 
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+                style={{ 
+                  position: "absolute",
+                  inset: 0,
+                  borderRadius: "50%",
+                  border: "3px solid transparent",
+                  borderTopColor: "#38bdf8",
+                  borderRightColor: "#a78bfa",
+                  opacity: 0.8
+                }}
+              />
+              {/* Cute breathing inner cat avatar */}
+              <motion.div 
+                animate={{ scale: [1, 1.12, 1] }}
+                transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                style={{ 
+                  display: "grid",
+                  placeItems: "center",
+                  width: "56px",
+                  height: "56px",
+                  borderRadius: "18px",
+                  background: "linear-gradient(135deg, #a78bfa, #38bdf8)",
+                  color: "#070a18",
+                  boxShadow: "0 8px 24px rgba(56, 189, 248, 0.3)"
+                }}
+              >
+                <Cat size={32} strokeWidth={2.2} />
+              </motion.div>
+            </div>
+
+            <div style={{ display: "grid", gap: "8px" }}>
+              <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#f3f4f6", margin: 0, letterSpacing: "-0.01em" }}>
+                Meow
+              </h2>
+              <p className="muted" style={{ fontSize: "13px", margin: 0, minHeight: "20px" }}>
+                <TypewriterEffect text="Fetching catnip and stats..." />
+              </p>
+            </div>
+
+            {/* Micro loading progress line */}
+            <div style={{ width: "120px", height: "4px", background: "rgba(148, 163, 184, 0.1)", borderRadius: "99px", overflow: "hidden" }}>
+              <motion.div 
+                animate={{ x: [-120, 120] }}
+                transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                style={{ 
+                  width: "60px", 
+                  height: "100%", 
+                  background: "linear-gradient(90deg, #38bdf8, #a78bfa)", 
+                  borderRadius: "inherit" 
+                }}
+              />
+            </div>
+          </motion.div>
+        </div>
+      </main>
+    );
+  }
 
   return <main>
     <BackgroundBeams />
