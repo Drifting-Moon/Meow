@@ -319,13 +319,12 @@ function LoginPage({ auth }) {
 function TodayStrip({ friends, realtimeStatus }) {
   const leader = [...friends].sort((a, b) => b.todaySolved - a.todaySolved)[0];
   return <section className="today-strip">
-    <div className="today-head"><strong>Today</strong><span className={`live-dot ${realtimeStatus}`}>Live</span><span>Manual logs update in realtime</span></div>
+    <div className="today-head"><strong>Today's Solves</strong><span className={`live-dot ${realtimeStatus}`}>Live</span><span>Manual logs update in realtime</span></div>
     <div className="today-grid">
       {friends.map((f) => <CardSpotlight key={f.id} className={`today-card ${leader?.id === f.id && f.todaySolved > 0 ? "leading" : ""} ${f.isYou ? "you-card" : ""}`} style={{ "--you": f.color }}>
         <div className="friend-line"><span className="mini-avatar" style={{ "--tag": f.color }}>{f.initials}</span><b>{f.isYou ? "You" : f.name}</b>{leader?.id === f.id && f.todaySolved > 0 && <Flame className="fire-icon" />}</div>
         <div className="today-number">{f.loading ? <Skeleton className="skeleton-small" /> : <AnimatedCounter value={f.todaySolved} />}</div>
-        <ProgressBar value={(f.todaySolved / Math.max(1, f.dailyGoal)) * 100} color={f.color} />
-        <p className="muted">{f.todaySolved}/{f.dailyGoal} daily goal <SourceIcon source={f.sourceIcon} /></p>
+        <p className="muted">{f.todaySolved} problems solved today</p>
       </CardSpotlight>)}
     </div>
   </section>;
@@ -344,7 +343,7 @@ function Hero({ friends, activeId, setActiveId }) {
       <Spotlight className="king-card">
         <span>Today's King</span>
         <strong>{king?.isYou ? "You" : king?.name || "Syncing"}</strong>
-        <small>{king ? `${king.todaySolved}/${king.dailyGoal} solved today` : "Add a manual log to begin"}</small>
+        <small>{king ? `${king.todaySolved} problems solved today` : "Add a manual log to begin"}</small>
         <Trophy className="king-trophy" />
       </Spotlight>
     </section>
@@ -371,12 +370,9 @@ function StatCard({ icon: Icon, label, value, suffix = "", accent, detail, loadi
 
 function PersonalStats({ friend, friends }) {
   const rank = rankFriends(friends).findIndex((f) => f.id === friend.id) + 1;
-  const goalPct = (friend.totalSolved / Math.max(1, friend.longGoal)) * 100;
-  const pace = heatmapArray(friend, 30).reduce((s, d) => s + d.count, 0) / 30;
-  const daysLeft = pace ? Math.ceil(Math.max(friend.longGoal - friend.totalSolved, 0) / pace) : null;
   const pie = ["easy", "medium", "hard"].map((k) => ({ name: DIFFICULTIES[k].label, value: friend[k], color: DIFFICULTIES[k].color }));
   return <BentoGrid>
-    <StatCard owner={friend} source={friend.sourceIcon} icon={GitGraph} label="Total Solved" value={friend.totalSolved} accent={friend.color} loading={friend.loading} detail={`${friend.easy} easy / ${friend.medium} medium / ${friend.hard} hard`} className="span-3" />
+    <StatCard owner={friend} source={friend.sourceIcon} icon={GitGraph} label="Total Solved" value={friend.totalSolved} accent={friend.color} loading={friend.loading} detail={`${friend.easy} easy / ${friend.medium} medium / ${friend.hard} hard`} className="span-4" />
     <StatCard owner={friend} icon={Flame} label="Current Streak" value={friend.streak} suffix="d" accent="#f97316" loading={friend.loading} detail={<span className="fire">manual log streak</span>} />
     <StatCard owner={friend} icon={Trophy} label="Friend Rank" value={rank} accent="#38bdf8" loading={friend.loading} detail={`of ${friends.length} grinders`} />
     <CardSpotlight className={`span-3 tall ${friend.isYou ? "you-card" : ""}`} style={{ "--you": friend.color }}>
@@ -386,13 +382,6 @@ function PersonalStats({ friend, friends }) {
         <PieChart><Pie data={pie} dataKey="value" innerRadius={54} outerRadius={82} paddingAngle={4}>{pie.map((p) => <Cell key={p.name} fill={p.color} />)}</Pie><Tooltip content={<ChartTooltip />} /></PieChart>
       </ResponsiveContainer>}
       <div className="legend">{pie.map((p) => <span key={p.name}><i style={{ background: p.color }} />{p.name}</span>)}</div>
-    </CardSpotlight>
-    <CardSpotlight className="span-3">
-      <div className="stat-head"><Target size={18} /><span>Long-Term Goal</span></div>
-      <div className="goal-row"><AnimatedCounter value={friend.totalSolved} className="goal-big" /><span>/ {friend.longGoal}</span></div>
-      <ProgressBar value={goalPct} color={friend.color} />
-      <div className="checkpoints"><i>25%</i><i>50%</i><i>75%</i><i>100%</i></div>
-      <p className="muted">{daysLeft ? `Estimated completion in ${daysLeft} days` : "Need recent activity to estimate pace"}</p>
     </CardSpotlight>
     <CardSpotlight className="span-3">
       <div className="stat-head"><Check size={18} /><span>Manual Tracking</span></div>
@@ -432,7 +421,12 @@ function chartSeries(friends) {
     const key = todayKey(-i);
     const point = { date: formatDay(key) };
     friends.forEach((f) => {
-      point[f.name] = heatmapArray(f, "all", i + 1).reduce((s, d) => s + d.count, 0);
+      let sum = 0;
+      for (let j = 364; j >= i; j--) {
+        const day = todayKey(-j);
+        sum += f.heatmap?.[day] || 0;
+      }
+      point[f.name] = sum;
     });
     points.push(point);
   }
@@ -479,23 +473,6 @@ function Analytics({ friends }) {
       {tab === "difficulty" && <ResponsiveContainer width="100%" height={330}><BarChart data={breakdown}><CartesianGrid stroke="#1f2937" /><XAxis dataKey="name" stroke="#64748b" /><YAxis stroke="#64748b" /><Tooltip content={<ChartTooltip />} /><Bar dataKey="Easy" stackId="a" fill="#22c55e" /><Bar dataKey="Medium" stackId="a" fill="#f59e0b" /><Bar dataKey="Hard" stackId="a" fill="#ef4444" radius={[5, 5, 0, 0]} /></BarChart></ResponsiveContainer>}
       {tab === "streak" && <ResponsiveContainer width="100%" height={330}><AreaChart data={streak}><CartesianGrid stroke="#1f2937" /><XAxis dataKey="date" stroke="#64748b" interval={12} /><YAxis stroke="#64748b" /><Tooltip content={<ChartTooltip />} />{friends.map((f) => <Area key={f.id} type="monotone" dataKey={f.name} stroke={f.color} fill={f.color} fillOpacity={0.12} />)}</AreaChart></ResponsiveContainer>}
     </div>
-  </section>;
-}
-
-function GoalsPanel({ friends }) {
-  return <section className="panel">
-    <div className="section-head"><div><h2>Goals Panel</h2><p>Shared goals from Supabase, live via realtime.</p></div><Target /></div>
-    <div className="goal-grid">{friends.map((f) => {
-      const pct = (f.totalSolved / Math.max(1, f.longGoal)) * 100;
-      return <CardSpotlight key={f.id} className={f.isYou ? "you-card" : ""} style={{ "--you": f.color }}>
-        <div className="friend-line"><span className="mini-avatar" style={{ "--tag": f.color }}>{f.initials}</span><b>{f.isYou ? "You" : f.name}</b></div>
-        <div className="today-number"><AnimatedCounter value={f.todaySolved} /></div>
-        <ProgressBar value={(f.todaySolved / Math.max(1, f.dailyGoal)) * 100} color={f.color} />
-        <p className="muted">{f.todaySolved}/{f.dailyGoal} today</p>
-        <ProgressBar value={pct} color={f.color} />
-        <p className="muted">{Math.max(0, f.longGoal - f.totalSolved)} left by {f.deadline || "no deadline"}</p>
-      </CardSpotlight>;
-    })}</div>
   </section>;
 }
 
@@ -687,29 +664,25 @@ function Badges({ friend, friends }) {
   </section>;
 }
 
-function SettingsDrawer({ open, onClose, profile, currentFriend, auth, reloadFriends, updateGoal, toast }) {
-  const [form, setForm] = useState({ display_name: "", avatar_color: COLORS[0], daily_target: 2, long_term_target: 300, long_term_deadline: "" });
+function SettingsDrawer({ open, onClose, profile, auth, reloadFriends, toast }) {
+  const [form, setForm] = useState({ display_name: "", avatar_color: COLORS[0] });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
     if (!open) return;
     setForm({
       display_name: profile?.display_name || "",
-      avatar_color: profile?.avatar_color || COLORS[0],
-      daily_target: currentFriend?.dailyGoal || 2,
-      long_term_target: currentFriend?.longGoal || 300,
-      long_term_deadline: currentFriend?.deadline || ""
+      avatar_color: profile?.avatar_color || COLORS[0]
     });
-  }, [open, profile, currentFriend]);
+  }, [open, profile]);
   const save = async (e) => {
     e.preventDefault();
     setSaving(true);
     setError("");
     try {
       await auth.updateProfile({ display_name: form.display_name.trim(), avatar_color: form.avatar_color });
-      await updateGoal({ daily_target: Number(form.daily_target) || 0, long_term_target: Number(form.long_term_target) || 0, long_term_deadline: form.long_term_deadline || null });
       await reloadFriends();
-      toast("Saved profile and goals.");
+      toast("Saved profile settings.");
       onClose();
     } catch (err) {
       setError(err.message || "Could not save settings.");
@@ -719,14 +692,10 @@ function SettingsDrawer({ open, onClose, profile, currentFriend, auth, reloadFri
   };
   return <AnimatePresence>{open && <motion.div className="drawer-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
     <motion.form className="drawer settings-drawer" initial={{ x: 460 }} animate={{ x: 0 }} exit={{ x: 460 }} onSubmit={save}>
-      <div className="section-head"><div><h2>Edit Profile</h2><p>Your profile and manual tracking goals.</p></div><button type="button" className="icon-btn" onClick={onClose}><X /></button></div>
+      <div className="section-head"><div><h2>Edit Profile</h2><p>Customize your profile card and settings.</p></div><button type="button" className="icon-btn" onClick={onClose}><X /></button></div>
       <h3>Profile</h3>
       <label>Display name<input required value={form.display_name} onChange={(e) => setForm({ ...form, display_name: e.target.value })} /></label>
       <label>Avatar color<input type="color" value={form.avatar_color} onChange={(e) => setForm({ ...form, avatar_color: e.target.value })} /></label>
-      <h3>Goals</h3>
-      <label>Daily target<input type="number" min="0" value={form.daily_target} onChange={(e) => setForm({ ...form, daily_target: e.target.value })} /></label>
-      <label>Long-term target<input type="number" min="0" value={form.long_term_target} onChange={(e) => setForm({ ...form, long_term_target: e.target.value })} /></label>
-      <label>Deadline<input type="date" value={form.long_term_deadline || ""} onChange={(e) => setForm({ ...form, long_term_deadline: e.target.value })} /></label>
       {error && <p className="error-text">{error}</p>}
       <button className="primary" disabled={saving}>{saving ? "Saving..." : "Save Settings"}</button>
     </motion.form>
@@ -806,12 +775,11 @@ function App() {
       {activeFriend && <PersonalStats friend={activeFriend} friends={hydratedStats} />}
       <Heatmap friends={hydratedStats} activeId={activeId} />
       {activeFriend && <Analytics friends={hydratedStats} />}
-      <GoalsPanel friends={hydratedStats} />
       <BattleMode friends={hydratedStats} />
       {activeFriend && <Badges friend={activeFriend} friends={hydratedStats} />}
     </div>
     <button className="fab" onClick={() => setLogOpen(true)}><Plus /><span>Log</span></button>
-    <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} profile={auth.profile} currentFriend={currentFriend} auth={auth} reloadFriends={reloadFriends} updateGoal={updateGoal} toast={toastNow} />
+    <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} profile={auth.profile} auth={auth} reloadFriends={reloadFriends} toast={toastNow} />
     <ManualLogModal open={logOpen} onClose={() => setLogOpen(false)} user={auth.user} addLog={addLog} toast={toastNow} />
     <Toast toast={toast} />
   </main>;
