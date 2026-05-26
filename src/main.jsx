@@ -80,7 +80,8 @@ function rankFriends(friends) {
   return [...friends].sort((a, b) => b.totalSolved - a.totalSolved);
 }
 
-function calculateEstimatedDoneDate(friend, startDateStr = "2026-05-20") {
+function calculateEstimatedDoneDate(friend, globalStartDateStr = "2026-05-20") {
+  const startDateStr = friend.challengeStartDate || globalStartDateStr;
   const start = new Date(startDateStr);
   start.setHours(0, 0, 0, 0);
   const today = new Date();
@@ -93,7 +94,7 @@ function calculateEstimatedDoneDate(friend, startDateStr = "2026-05-20") {
   const target = friend.longGoal || 300;
 
   if (solved >= target) {
-    return { estString: "Completed! 🎉", paceStatus: "🚀 Ahead of schedule", paceColor: "var(--green)" };
+    return { estString: "Completed! 🎉", paceStatus: "🚀 Ahead of schedule", paceColor: "var(--green)", daysPassed, dailyPace: solved / daysPassed };
   }
 
   const dailyPace = solved / daysPassed;
@@ -111,7 +112,7 @@ function calculateEstimatedDoneDate(friend, startDateStr = "2026-05-20") {
   }
 
   if (dailyPace <= 0) {
-    return { estString: "Est. done: Never (no daily solves)", paceStatus, paceColor };
+    return { estString: "Est. done: Never (no daily solves)", paceStatus, paceColor, daysPassed, dailyPace: 0 };
   }
 
   const remaining = target - solved;
@@ -126,7 +127,9 @@ function calculateEstimatedDoneDate(friend, startDateStr = "2026-05-20") {
   return {
     estString: `Est. done: ${formattedDate}`,
     paceStatus,
-    paceColor
+    paceColor,
+    daysPassed,
+    dailyPace
   };
 }
 
@@ -179,14 +182,14 @@ function GoalProgressCard({ friends, startDate }) {
 }
 
 function CompetitionPacePanel({ friends, logs, startDate }) {
-  const start = new Date(startDate || "2026-05-20");
-  start.setHours(0, 0, 0, 0);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diffTime = Math.abs(today - start);
-  const daysPassed = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-
   const rankedFriends = [...friends].map((f) => {
+    const friendStart = new Date(f.challengeStartDate || startDate || "2026-05-20");
+    friendStart.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diffTime = Math.abs(today - friendStart);
+    const daysPassed = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+
     const solved = f.totalSolved || 0;
     const target = f.longGoal || 300;
     const dailyPace = solved / daysPassed;
@@ -209,7 +212,8 @@ function CompetitionPacePanel({ friends, logs, startDate }) {
       expectedSolved,
       behind,
       daysNeeded,
-      last7DaysSolved
+      last7DaysSolved,
+      daysPassed
     };
   });
 
@@ -310,6 +314,368 @@ function CompetitionPacePanel({ friends, logs, startDate }) {
           </div>
         </div>
 
+      </div>
+    </CardSpotlight>
+  );
+}
+
+/* ── Head-to-Head Duel Cards ── */
+function HeadToHeadDuels({ friends, logs, startDate }) {
+  if (friends.length < 2) return null;
+
+  const pairs = [];
+  for (let i = 0; i < friends.length; i++) {
+    for (let j = i + 1; j < friends.length; j++) {
+      pairs.push([friends[i], friends[j]]);
+    }
+  }
+
+  const getWeekSolves = (f) => {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    return logs
+      .filter((l) => l.user_id === f.id && new Date(l.log_date) >= sevenDaysAgo)
+      .reduce((sum, l) => sum + Number(l.count || 0), 0);
+  };
+
+  return (
+    <CardSpotlight className="panel" style={{ padding: "20px", marginTop: "18px", width: "100%" }}>
+      <div className="section-head" style={{ marginBottom: "16px" }}>
+        <div>
+          <h2 style={{ fontSize: "16px", fontWeight: "800", margin: 0 }}>⚔️ Head-to-Head Duels</h2>
+          <p className="muted" style={{ fontSize: "12px", margin: "4px 0 0 0" }}>Direct matchups between every pair of contestants across key battle categories.</p>
+        </div>
+        <Swords size={18} style={{ color: "#ef4444" }} />
+      </div>
+
+      <div style={{ display: "grid", gap: "14px" }}>
+        {pairs.map(([a, b]) => {
+          const aSolves = a.totalSolved || 0;
+          const bSolves = b.totalSolved || 0;
+          const aStreak = a.streak || 0;
+          const bStreak = b.streak || 0;
+          const aWeek = getWeekSolves(a);
+          const bWeek = getWeekSolves(b);
+
+          // Score categories: total, streak, weekly
+          let aWins = 0, bWins = 0;
+          if (aSolves > bSolves) aWins++; else if (bSolves > aSolves) bWins++;
+          if (aStreak > bStreak) aWins++; else if (bStreak > aStreak) bWins++;
+          if (aWeek > bWeek) aWins++; else if (bWeek > aWeek) bWins++;
+
+          const winner = aWins > bWins ? a : bWins > aWins ? b : null;
+
+          return (
+            <div key={`${a.id}-${b.id}`} style={{ border: "1px solid var(--line)", borderRadius: "16px", background: "rgba(2, 6, 23, 0.35)", padding: "16px", overflow: "hidden" }}>
+              {/* Header with names */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span className="mini-avatar" style={{ "--tag": a.color, width: "28px", height: "28px", fontSize: "11px" }}>{a.initials}</span>
+                  <b style={{ color: a.color, fontSize: "14px" }}>{a.name}</b>
+                </div>
+                <span style={{ fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em" }}>vs</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <b style={{ color: b.color, fontSize: "14px" }}>{b.name}</b>
+                  <span className="mini-avatar" style={{ "--tag": b.color, width: "28px", height: "28px", fontSize: "11px" }}>{b.initials}</span>
+                </div>
+              </div>
+
+              {/* Category bars */}
+              <div style={{ display: "grid", gap: "10px" }}>
+                {[
+                  { label: "Total Solved", aVal: aSolves, bVal: bSolves },
+                  { label: "Current Streak", aVal: aStreak, bVal: bStreak },
+                  { label: "This Week", aVal: aWeek, bVal: bWeek }
+                ].map(({ label, aVal, bVal }) => {
+                  const max = Math.max(aVal, bVal, 1);
+                  const aIsAhead = aVal > bVal;
+                  const bIsAhead = bVal > aVal;
+                  return (
+                    <div key={label}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginBottom: "4px" }}>
+                        <span style={{ color: aIsAhead ? a.color : "#94a3b8", fontWeight: aIsAhead ? "700" : "400" }}>{aVal}</span>
+                        <span className="muted" style={{ fontWeight: "600" }}>{label}</span>
+                        <span style={{ color: bIsAhead ? b.color : "#94a3b8", fontWeight: bIsAhead ? "700" : "400" }}>{bVal}</span>
+                      </div>
+                      <div style={{ display: "flex", gap: "3px", height: "8px" }}>
+                        <div style={{ flex: 1, display: "flex", justifyContent: "flex-end" }}>
+                          <div style={{ height: "100%", width: `${(aVal / max) * 100}%`, background: aIsAhead ? a.color : "rgba(148,163,184,0.25)", borderRadius: "99px 0 0 99px", transition: "width 0.8s ease" }} />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ height: "100%", width: `${(bVal / max) * 100}%`, background: bIsAhead ? b.color : "rgba(148,163,184,0.25)", borderRadius: "0 99px 99px 0", transition: "width 0.8s ease" }} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Winner badge */}
+              <div style={{ marginTop: "12px", textAlign: "center", fontSize: "12px" }}>
+                {winner ? (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 12px", background: `${winner.color}15`, border: `1px solid ${winner.color}40`, borderRadius: "99px", fontWeight: "700", color: winner.color }}>
+                    <Trophy size={12} /> {winner.name} leads {aWins > bWins ? aWins : bWins}–{aWins > bWins ? bWins : aWins}
+                  </span>
+                ) : (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 12px", background: "rgba(148,163,184,0.08)", border: "1px solid rgba(148,163,184,0.2)", borderRadius: "99px", fontWeight: "700", color: "#94a3b8" }}>
+                    ⚖️ Dead Even
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </CardSpotlight>
+  );
+}
+
+/* ── Consistency Scoreboard ── */
+function ConsistencyScoreboard({ friends, logs, startDate }) {
+  const results = friends.map((f) => {
+    const start = new Date(f.challengeStartDate || startDate || "2026-05-20");
+    start.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const totalDays = Math.max(1, Math.ceil((today - start) / (1000 * 60 * 60 * 24)));
+
+    const dailyTarget = f.dailyGoal || 2;
+    const friendLogs = logs.filter((l) => l.user_id === f.id);
+
+    // Count days where target was met
+    const dayMap = {};
+    friendLogs.forEach((l) => {
+      const key = l.log_date?.slice(0, 10);
+      if (key) dayMap[key] = (dayMap[key] || 0) + Number(l.count || 0);
+    });
+
+    let metDays = 0;
+    for (let d = 0; d < totalDays; d++) {
+      const date = new Date(start);
+      date.setDate(date.getDate() + d);
+      const key = date.toISOString().slice(0, 10);
+      if ((dayMap[key] || 0) >= dailyTarget) metDays++;
+    }
+
+    const pct = Math.round((metDays / totalDays) * 100);
+    const grade = pct >= 90 ? "S" : pct >= 75 ? "A" : pct >= 50 ? "B" : pct >= 25 ? "C" : "D";
+    const gradeColor = pct >= 90 ? "#22c55e" : pct >= 75 ? "#38bdf8" : pct >= 50 ? "#fbbf24" : pct >= 25 ? "#f97316" : "#ef4444";
+
+    return { ...f, metDays, totalDays, pct, grade, gradeColor };
+  });
+
+  results.sort((a, b) => b.pct - a.pct);
+
+  return (
+    <CardSpotlight className="panel" style={{ padding: "20px", marginTop: "18px", width: "100%" }}>
+      <div className="section-head" style={{ marginBottom: "16px" }}>
+        <div>
+          <h2 style={{ fontSize: "16px", fontWeight: "800", margin: 0 }}>📊 Consistency Scoreboard</h2>
+          <p className="muted" style={{ fontSize: "12px", margin: "4px 0 0 0" }}>Percentage of days each contestant met their daily target. Higher consistency = stronger discipline.</p>
+        </div>
+        <BarChart3 size={18} style={{ color: "#22c55e" }} />
+      </div>
+
+      <div style={{ display: "grid", gap: "14px" }}>
+        {results.map((r, idx) => (
+          <div key={r.id} style={{ display: "grid", gap: "8px", padding: "14px", border: "1px solid var(--line)", borderRadius: "14px", background: "rgba(2, 6, 23, 0.35)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <span style={{ fontSize: "18px", fontWeight: "900", color: idx === 0 ? "#fbbf24" : "#475569", fontFamily: "Geist Mono, monospace", width: "24px" }}>#{idx + 1}</span>
+                <span className="mini-avatar" style={{ "--tag": r.color, width: "24px", height: "24px", fontSize: "11px" }}>{r.initials}</span>
+                <b style={{ color: r.color, fontSize: "13px" }}>{r.name}</b>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <span style={{ fontSize: "12px", color: "#94a3b8", fontFamily: "Geist Mono, monospace" }}>{r.metDays}/{r.totalDays} days</span>
+                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "32px", height: "32px", borderRadius: "10px", background: `${r.gradeColor}18`, border: `1px solid ${r.gradeColor}40`, color: r.gradeColor, fontWeight: "900", fontSize: "14px", fontFamily: "Geist Mono, monospace" }}>{r.grade}</span>
+              </div>
+            </div>
+            <div style={{ height: "8px", background: "#111827", borderRadius: "99px", overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${r.pct}%`, background: `linear-gradient(90deg, ${r.color}, ${r.gradeColor})`, borderRadius: "inherit", transition: "width 1s ease" }} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "#64748b" }}>
+              <span>Daily target: {r.dailyGoal || 2}/day</span>
+              <span style={{ fontWeight: "700", color: r.gradeColor }}>{r.pct}% hit rate</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </CardSpotlight>
+  );
+}
+
+/* ── Comeback Tracker ── */
+function ComebackTracker({ friends, startDate }) {
+  if (friends.length < 2) return null;
+
+  const sorted = [...friends].sort((a, b) => (b.totalSolved || 0) - (a.totalSolved || 0));
+  const leader = sorted[0];
+  const leaderSolved = leader.totalSolved || 0;
+
+  if (leaderSolved === 0) return null;
+
+  return (
+    <CardSpotlight className="panel" style={{ padding: "20px", marginTop: "18px", width: "100%" }}>
+      <div className="section-head" style={{ marginBottom: "16px" }}>
+        <div>
+          <h2 style={{ fontSize: "16px", fontWeight: "800", margin: 0 }}>📈 Comeback Tracker</h2>
+          <p className="muted" style={{ fontSize: "12px", margin: "4px 0 0 0" }}>How far behind is everyone from the leader? Can they catch up at current pace?</p>
+        </div>
+        <GitGraph size={18} style={{ color: "#f97316" }} />
+      </div>
+
+      <div style={{ display: "grid", gap: "12px" }}>
+        {sorted.map((f, idx) => {
+          const solved = f.totalSolved || 0;
+          const gap = leaderSolved - solved;
+          const { dailyPace, daysPassed } = calculateEstimatedDoneDate(f, startDate);
+          const leaderPace = (leader.totalSolved || 0) / Math.max(1, calculateEstimatedDoneDate(leader, startDate).daysPassed);
+
+          let catchUpDays = Infinity;
+          if (idx > 0 && dailyPace > leaderPace) {
+            catchUpDays = Math.ceil(gap / (dailyPace - leaderPace));
+          }
+
+          const isLeader = idx === 0;
+
+          return (
+            <div key={f.id} style={{ padding: "14px", border: `1px solid ${isLeader ? f.color + "40" : "var(--line)"}`, borderRadius: "14px", background: isLeader ? `${f.color}08` : "rgba(2, 6, 23, 0.35)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  {isLeader && <span style={{ fontSize: "14px" }}>👑</span>}
+                  <span className="mini-avatar" style={{ "--tag": f.color, width: "24px", height: "24px", fontSize: "11px" }}>{f.initials}</span>
+                  <b style={{ color: f.color, fontSize: "13px" }}>{f.name}</b>
+                </div>
+                <div style={{ display: "flex", gap: "12px", fontSize: "12px", alignItems: "center" }}>
+                  {isLeader ? (
+                    <span style={{ color: f.color, fontWeight: "700" }}>🏆 Leading with {solved} solved</span>
+                  ) : (
+                    <>
+                      <span className="muted">{solved} solved</span>
+                      <span style={{ color: "#ef4444", fontWeight: "700", fontFamily: "Geist Mono, monospace" }}>−{gap} behind</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {!isLeader && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "#64748b" }}>
+                  <span>Pace: <b style={{ color: f.color }}>{dailyPace.toFixed(1)}/d</b> vs Leader: <b style={{ color: leader.color }}>{leaderPace.toFixed(1)}/d</b></span>
+                  <span style={{ fontWeight: "700", color: dailyPace > leaderPace ? "#22c55e" : "#f59e0b" }}>
+                    {dailyPace > leaderPace
+                      ? `🔥 Catch up in ~${catchUpDays}d`
+                      : dailyPace === leaderPace
+                        ? "→ Matching pace"
+                        : "📉 Falling further behind"}
+                  </span>
+                </div>
+              )}
+
+              {/* Gap bar */}
+              {!isLeader && (
+                <div style={{ marginTop: "8px", height: "6px", background: "#111827", borderRadius: "99px", overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${Math.min(100, (solved / leaderSolved) * 100)}%`, background: f.color, borderRadius: "inherit", transition: "width 0.8s ease" }} />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </CardSpotlight>
+  );
+}
+
+/* ── Who's Winning Summary Banner ── */
+function WhoIsWinningBanner({ friends, logs, startDate }) {
+  if (friends.length < 2) return null;
+
+  // Category leaders
+  const byTotal = [...friends].sort((a, b) => (b.totalSolved || 0) - (a.totalSolved || 0));
+  const byStreak = [...friends].sort((a, b) => (b.streak || 0) - (a.streak || 0));
+
+  const getWeekSolves = (f) => {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    return logs
+      .filter((l) => l.user_id === f.id && new Date(l.log_date) >= sevenDaysAgo)
+      .reduce((sum, l) => sum + Number(l.count || 0), 0);
+  };
+
+  const weekData = friends.map((f) => ({ ...f, weekSolves: getWeekSolves(f) }));
+  const byWeek = [...weekData].sort((a, b) => b.weekSolves - a.weekSolves);
+
+  const paceData = friends.map((f) => {
+    const { dailyPace } = calculateEstimatedDoneDate(f, startDate);
+    return { ...f, dailyPace };
+  });
+  const byPace = [...paceData].sort((a, b) => b.dailyPace - a.dailyPace);
+
+  // Calculate overall score: 3pt for 1st, 2pt for 2nd, 1pt for 3rd in each category
+  const scores = {};
+  friends.forEach((f) => { scores[f.id] = { friend: f, pts: 0, golds: 0 }; });
+
+  [byTotal, byStreak, byWeek, byPace].forEach((ranking) => {
+    ranking.forEach((f, idx) => {
+      const pts = Math.max(0, friends.length - idx);
+      scores[f.id].pts += pts;
+      if (idx === 0) scores[f.id].golds++;
+    });
+  });
+
+  const overallRanking = Object.values(scores).sort((a, b) => b.pts - a.pts || b.golds - a.golds);
+  const mvp = overallRanking[0];
+
+  const categories = [
+    { label: "Total Solved", icon: "🏆", leader: byTotal[0], value: `${byTotal[0]?.totalSolved || 0}`, color: "#fbbf24" },
+    { label: "Best Streak", icon: "🔥", leader: byStreak[0], value: `${byStreak[0]?.streak || 0}d`, color: "#f97316" },
+    { label: "Weekly Sprint", icon: "⚡", leader: byWeek[0], value: `${byWeek[0]?.weekSolves || 0}`, color: "#a78bfa" },
+    { label: "Pace Leader", icon: "🚀", leader: byPace[0], value: `${byPace[0]?.dailyPace?.toFixed(1) || 0}/d`, color: "#38bdf8" }
+  ];
+
+  return (
+    <CardSpotlight className="panel" style={{ padding: "24px", marginTop: "18px", width: "100%", background: "linear-gradient(135deg, rgba(251, 191, 36, 0.04), rgba(167, 139, 250, 0.04))" }}>
+      <div style={{ textAlign: "center", marginBottom: "20px" }}>
+        <h2 style={{ fontSize: "20px", fontWeight: "900", margin: "0 0 4px 0" }}>🏅 Who's Winning?</h2>
+        <p className="muted" style={{ fontSize: "12px", margin: 0 }}>Overall competition standings across all categories</p>
+      </div>
+
+      {/* MVP Banner */}
+      {mvp && (
+        <div style={{ textAlign: "center", marginBottom: "20px", padding: "16px", background: `${mvp.friend.color}10`, border: `2px solid ${mvp.friend.color}40`, borderRadius: "16px" }}>
+          <div style={{ fontSize: "32px", marginBottom: "4px" }}>👑</div>
+          <div style={{ fontSize: "14px", fontWeight: "900", color: mvp.friend.color }}>{mvp.friend.name}</div>
+          <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "2px" }}>Current MVP • {mvp.pts} pts • {mvp.golds} gold{mvp.golds !== 1 ? "s" : ""}</div>
+        </div>
+      )}
+
+      {/* Category leaders */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "10px", marginBottom: "20px" }}>
+        {categories.map(({ label, icon, leader, value, color }) => (
+          <div key={label} style={{ textAlign: "center", padding: "12px 8px", border: "1px solid var(--line)", borderRadius: "12px", background: "rgba(2, 6, 23, 0.35)" }}>
+            <div style={{ fontSize: "20px", marginBottom: "4px" }}>{icon}</div>
+            <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "4px" }}>{label}</div>
+            <div style={{ fontSize: "13px", fontWeight: "800", color: leader?.color || "#fff" }}>{leader?.name || "—"}</div>
+            <div style={{ fontSize: "11px", color, fontFamily: "Geist Mono, monospace", fontWeight: "700" }}>{value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Points table */}
+      <div style={{ border: "1px solid var(--line)", borderRadius: "12px", overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "40px 1fr 60px 50px", padding: "8px 14px", fontSize: "10px", fontWeight: "700", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid var(--line)", background: "rgba(2, 6, 23, 0.5)" }}>
+          <span>#</span><span>Contestant</span><span style={{ textAlign: "right" }}>Points</span><span style={{ textAlign: "right" }}>Golds</span>
+        </div>
+        {overallRanking.map((entry, idx) => (
+          <div key={entry.friend.id} style={{ display: "grid", gridTemplateColumns: "40px 1fr 60px 50px", padding: "10px 14px", fontSize: "12px", alignItems: "center", borderBottom: idx < overallRanking.length - 1 ? "1px solid var(--line)" : "none", background: idx === 0 ? `${entry.friend.color}08` : "transparent" }}>
+            <span style={{ fontWeight: "900", color: idx === 0 ? "#fbbf24" : idx === 1 ? "#94a3b8" : idx === 2 ? "#cd7f32" : "#475569", fontSize: "14px" }}>{idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span className="mini-avatar" style={{ "--tag": entry.friend.color, width: "22px", height: "22px", fontSize: "10px" }}>{entry.friend.initials}</span>
+              <b style={{ color: entry.friend.color }}>{entry.friend.name}</b>
+            </div>
+            <span style={{ textAlign: "right", fontFamily: "Geist Mono, monospace", fontWeight: "700", color: idx === 0 ? entry.friend.color : "#94a3b8" }}>{entry.pts}</span>
+            <span style={{ textAlign: "right", fontFamily: "Geist Mono, monospace", fontWeight: "700", color: "#fbbf24" }}>{entry.golds}</span>
+          </div>
+        ))}
       </div>
     </CardSpotlight>
   );
@@ -1728,7 +2094,7 @@ function Toast({ toast }) {
 
 function AdminGoalsManager({ friends, reloadFriends, toast }) {
   const [selectedUserId, setSelectedUserId] = useState(friends[0]?.id || "");
-  const [form, setForm] = useState({ daily_target: 2, long_term_target: 300, deadline: "" });
+  const [form, setForm] = useState({ daily_target: 2, long_term_target: 300, deadline: "", challenge_start_date: "" });
   const [updating, setUpdating] = useState(false);
   const { updateGoal } = useGoals();
 
@@ -1739,7 +2105,8 @@ function AdminGoalsManager({ friends, reloadFriends, toast }) {
       setForm({
         daily_target: selectedFriend.dailyGoal || 2,
         long_term_target: selectedFriend.longGoal || 300,
-        deadline: selectedFriend.deadline || ""
+        deadline: selectedFriend.deadline || "",
+        challenge_start_date: selectedFriend.challengeStartDate || ""
       });
     }
   }, [selectedFriend]);
@@ -1754,7 +2121,8 @@ function AdminGoalsManager({ friends, reloadFriends, toast }) {
       await updateGoal({
         daily_target: Number(form.daily_target),
         long_term_target: Number(form.long_term_target),
-        long_term_deadline: form.deadline || null
+        long_term_deadline: form.deadline || null,
+        challenge_start_date: form.challenge_start_date || null
       }, selectedUserId);
       await reloadFriends();
       toast(`Updated goals for ${selectedFriend.name}!`);
@@ -1788,7 +2156,7 @@ function AdminGoalsManager({ friends, reloadFriends, toast }) {
           </div>
         </label>
 
-        <div className="setup-row difficulties" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "12px", alignItems: "end" }}>
+        <div className="setup-row difficulties" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "12px", alignItems: "end" }}>
           <label style={{ fontSize: "12px", display: "grid", gap: "6px" }}>
             Daily Problem Target
             <input
@@ -1813,6 +2181,14 @@ function AdminGoalsManager({ friends, reloadFriends, toast }) {
               type="date"
               value={form.deadline}
               onChange={(e) => setForm({ ...form, deadline: e.target.value })}
+            />
+          </label>
+          <label style={{ fontSize: "12px", display: "grid", gap: "6px" }}>
+            Challenge Start Date
+            <input
+              type="date"
+              value={form.challenge_start_date}
+              onChange={(e) => setForm({ ...form, challenge_start_date: e.target.value })}
             />
           </label>
         </div>
@@ -2410,14 +2786,26 @@ function App() {
           <TodayStrip friends={hydratedStats} realtimeStatus={realtimeStatus} />
           <Hero friends={hydratedStats} activeId={activeId} setActiveId={setActiveId} />
 
-          {/* Goal Progress Bars (full width card) */}
-          <GoalProgressCard friends={hydratedStats} startDate={settings.startDate} />
-
-          {/* Competition & Pace Leaderboard */}
-          <CompetitionPacePanel friends={hydratedStats} logs={logs} startDate={settings.startDate} />
-
           {!auth.session && (
             <>
+              {/* Goal Progress Bars (full width card) - public page only */}
+              <GoalProgressCard friends={hydratedStats} startDate={settings.startDate} />
+
+              {/* Competition & Pace Leaderboard - public page only */}
+              <CompetitionPacePanel friends={hydratedStats} logs={logs} startDate={settings.startDate} />
+
+              {/* Head-to-Head Duel Cards - public page only */}
+              <HeadToHeadDuels friends={hydratedStats} logs={logs} startDate={settings.startDate} />
+
+              {/* Consistency Scoreboard - public page only */}
+              <ConsistencyScoreboard friends={hydratedStats} logs={logs} startDate={settings.startDate} />
+
+              {/* Comeback Tracker - public page only */}
+              <ComebackTracker friends={hydratedStats} startDate={settings.startDate} />
+
+              {/* Who's Winning Summary - public page only */}
+              <WhoIsWinningBanner friends={hydratedStats} logs={logs} startDate={settings.startDate} />
+
               {/* Fines Basket Total Pool (Only pool card is shown when logged out) */}
               <MoneyBasket friends={hydratedStats} logs={logs} isAuth={false} isAdmin={false} toast={toastNow} settings={settings} updateSettings={updateSettings} finesPaid={finesPaid} updateFinesPaid={updateFinesPaid} />
 

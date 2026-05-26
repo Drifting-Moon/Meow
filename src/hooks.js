@@ -137,6 +137,7 @@ export function useFriends(session) {
             dailyGoal: goal.daily_target ?? 2,
             longGoal: goal.long_term_target ?? 300,
             deadline: goal.long_term_deadline,
+            challengeStartDate: goal.challenge_start_date || null,
             isMock: false
           };
         } else {
@@ -150,6 +151,7 @@ export function useFriends(session) {
             dailyGoal: 2,
             longGoal: 300,
             deadline: null,
+            challengeStartDate: null,
             isMock: true
           };
         }

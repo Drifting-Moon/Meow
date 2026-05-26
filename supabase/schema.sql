@@ -24,6 +24,7 @@ create table if not exists public.goals (
   daily_target int not null default 2 check (daily_target >= 0),
   long_term_target int not null default 300 check (long_term_target >= 0),
   long_term_deadline date,
+  challenge_start_date date,
   updated_at timestamptz not null default now(),
   unique (user_id)
 );
