@@ -441,14 +441,10 @@ function LoginModal({ open, onClose, auth }) {
               <div className="shortcut-editor" style={{ display: "grid", gap: "10px", marginTop: "14px", maxHeight: "180px", overflowY: "auto", paddingRight: "4px" }}>
                 {shortcuts.map((friend, index) => (
                   <CardSpotlight key={index} className="shortcut-editor-card" style={{ padding: "10px" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                      <label>Name<input value={friend.name} onChange={(e) => updateShortcut(index, { name: e.target.value })} /></label>
-                      <label>Email<input type="email" value={friend.email} onChange={(e) => updateShortcut(index, { email: e.target.value })} /></label>
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "6px" }}>
-                      <label>Password<input type="text" value={friend.password || ""} onChange={(e) => updateShortcut(index, { password: e.target.value })} /></label>
-                      <label>Color<input type="color" value={friend.color} onChange={(e) => updateShortcut(index, { color: e.target.value })} /></label>
-                    </div>
+                    <label>Name<input value={friend.name} onChange={(e) => updateShortcut(index, { name: e.target.value })} /></label>
+                    <label>Email<input type="email" value={friend.email} onChange={(e) => updateShortcut(index, { email: e.target.value })} /></label>
+                    <label>Password<input type="text" value={friend.password || ""} onChange={(e) => updateShortcut(index, { password: e.target.value })} /></label>
+                    <label>Color<input type="color" value={friend.color} onChange={(e) => updateShortcut(index, { color: e.target.value })} style={{ height: "43px", padding: "4px" }} /></label>
                   </CardSpotlight>
                 ))}
               </div>
