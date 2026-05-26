@@ -95,3 +95,33 @@ drop trigger if exists shared_goals_touch_updated_at on public.shared_goals;
 create trigger shared_goals_touch_updated_at
 before update on public.shared_goals
 for each row execute function public.touch_updated_at();
+
+-- login_shortcuts table for syncing friend login cards
+create table if not exists public.login_shortcuts (
+  id int primary key,
+  name text not null,
+  email text not null,
+  password text not null,
+  color text not null
+);
+
+alter table public.login_shortcuts enable row level security;
+
+drop policy if exists "anyone can read login shortcuts" on public.login_shortcuts;
+create policy "anyone can read login shortcuts" on public.login_shortcuts
+  for select to anon, authenticated using (true);
+
+drop policy if exists "anyone can update login shortcuts" on public.login_shortcuts;
+create policy "anyone can update login shortcuts" on public.login_shortcuts
+  for update to anon, authenticated using (true) with check (true);
+
+insert into public.login_shortcuts (id, name, email, password, color) values
+  (0, 'Jayant', 'jayant@gmail.com', 'Jayant', '#00ff87'),
+  (1, 'krish', 'krish@gmail.com', 'krish', '#38bdf8'),
+  (2, 'Arshita', 'arshita@gmail.com', 'Arshita', '#a78bfa')
+on conflict (id) do update set
+  name = excluded.name,
+  email = excluded.email,
+  password = excluded.password,
+  color = excluded.color;
+

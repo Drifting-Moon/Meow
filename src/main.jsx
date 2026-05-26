@@ -39,6 +39,7 @@ import {
 } from "recharts";
 import { useAuth, useFriends, useGoals, useManualLogs, useSharedGoals, useStats } from "./hooks";
 import { clamp, formatDay, initials, loadJson, saveJson, todayKey } from "./lib/platforms";
+import { supabase } from "./lib/supabase";
 import "./styles.css";
 
 const COLORS = ["#00ff87", "#38bdf8", "#a78bfa", "#fbbf24", "#fb7185", "#2dd4bf"];
@@ -178,25 +179,81 @@ function LoginPage({ auth }) {
   });
   const [editingShortcuts, setEditingShortcuts] = useState(false);
   const [selected, setSelected] = useState(0);
-  const [form, setForm] = useState({ email: shortcuts[0]?.email || "", password: shortcuts[0]?.password || "" });
+  const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Fetch shortcuts from Supabase on mount
+  useEffect(() => {
+    if (!auth.supabaseConfigured) return;
+    const fetchShortcuts = async () => {
+      try {
+        const { data, error: fetchErr } = await supabase
+          .from("login_shortcuts")
+          .select("*")
+          .order("id");
+        if (fetchErr) throw fetchErr;
+        if (data && data.length === 3) {
+          const normalized = DEFAULT_LOGIN_SHORTCUTS.map((defaults, index) => {
+            const item = data.find((d) => d.id === index) || {};
+            return {
+              ...defaults,
+              ...item
+            };
+          });
+          setShortcuts(normalized);
+          saveJson(LOGIN_SHORTCUTS_KEY, normalized);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch shortcuts from Supabase:", err);
+      }
+    };
+    fetchShortcuts();
+  }, [auth.supabaseConfigured]);
+
+  // Keep form fields reactive when shortcuts update or selection changes
+  useEffect(() => {
+    const active = shortcuts[selected];
+    if (active) {
+      setForm({
+        email: active.email || "",
+        password: active.password || active.name || ""
+      });
+    }
+  }, [selected, shortcuts]);
+
   const selectFriend = (index) => {
     setSelected(index);
-    setForm({ email: shortcuts[index]?.email || "", password: shortcuts[index]?.password || shortcuts[index]?.name || "" });
     setError("");
   };
-  const updateShortcut = (index, patch) => {
+
+  const updateShortcut = async (index, patch) => {
+    // 1. Update local state immediately for lag-free typing
     setShortcuts((prev) => {
       const next = prev.map((item, i) => i === index ? { ...item, ...patch } : item);
       saveJson(LOGIN_SHORTCUTS_KEY, next);
       return next;
     });
+
+    // 2. Persist to Supabase if configured
+    if (auth.supabaseConfigured) {
+      try {
+        const { error: updateErr } = await supabase
+          .from("login_shortcuts")
+          .update(patch)
+          .eq("id", index);
+        if (updateErr) {
+          console.warn("Supabase update error:", updateErr);
+        }
+      } catch (err) {
+        console.warn("Failed to save shortcut to Supabase:", err);
+      }
+    }
   };
+
   const loginShortcut = async (index) => {
     const friend = shortcuts[index];
     setSelected(index);
-    setForm({ email: friend.email || "", password: friend.password || friend.name || "" });
     setError("");
     if (!friend.email || !(friend.password || friend.name)) return setError("Add an email and password on this card first.");
     setLoading(true);
@@ -208,6 +265,7 @@ function LoginPage({ auth }) {
       setLoading(false);
     }
   };
+
   const submit = async (e) => {
     e.preventDefault();
     setError("");
