@@ -392,23 +392,43 @@ function PersonalStats({ friend, friends }) {
   </BentoGrid>;
 }
 
-function Heatmap({ friends, activeId }) {
+function Heatmap({ friends, activeId, daysToShow }) {
   const [mode, setMode] = useState("single");
   const shown = mode === "single" ? friends.filter((f) => f.id === activeId) : friends;
+  
+  const weeksCount = daysToShow / 7;
+  const monthHeaders = [];
+  let lastMonth = "";
+  for (let w = 0; w < weeksCount; w++) {
+    const dayKey = todayKey((w * 7) - daysToShow + 1);
+    const date = new Date(dayKey);
+    const monthName = date.toLocaleDateString("en-US", { month: "short" });
+    if (monthName !== lastMonth) {
+      monthHeaders.push(monthName);
+      lastMonth = monthName;
+    } else {
+      monthHeaders.push("");
+    }
+  }
+
   return <section className="panel">
     <div className="section-head">
-      <div><h2>Activity Heatmap</h2><p>Manual problem logs over the last year.</p></div>
+      <div><h2>Activity Heatmap</h2><p>Manual problem logs since your first activity.</p></div>
       <div className="toolbar-pair"><div className="segmented"><button className={mode === "single" ? "active" : ""} onClick={() => setMode("single")}>Single</button><button className={mode === "all" ? "active" : ""} onClick={() => setMode("all")}>All Friends</button></div></div>
     </div>
     <div className={`heatmap-stack ${mode}`}>
       {shown.map((friend) => {
-        const days = heatmapArray(friend);
+        const days = heatmapArray(friend, daysToShow);
         return <div className="heatmap-card" key={friend.id}>
           <div className="heatmap-title"><b style={{ color: friend.color }}>{friend.isYou ? "You" : friend.name}</b><span>Manual logs</span></div>
-          <div className="months">{["Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May"].map((m) => <span key={m}>{m}</span>)}</div>
+          <div className="months" style={{ display: "grid", gridTemplateColumns: `repeat(${weeksCount}, 1fr)`, minWidth: "760px", paddingLeft: "38px" }}>
+            {monthHeaders.map((m, idx) => <span key={idx} style={{ fontSize: "11px", color: "#64748b" }}>{m}</span>)}
+          </div>
           <div className="heatmap-wrap">
             <div className="week-labels"><span>Mon</span><span>Wed</span><span>Fri</span></div>
-            <div className="heatmap-grid">{days.map((d) => <div key={d.date} title={`${formatDay(d.date)} - ${d.count} problems`} className={`heat-cell level-${clamp(d.count, 0, 4)}`} />)}</div>
+            <div className="heatmap-grid" style={{ gridTemplateColumns: `repeat(${weeksCount}, 12px)`, minWidth: "760px" }}>
+              {days.map((d) => <div key={d.date} title={`${formatDay(d.date)} - ${d.count} problems`} className={`heat-cell level-${clamp(d.count, 0, 4)}`} />)}
+            </div>
           </div>
         </div>;
       })}
@@ -416,14 +436,15 @@ function Heatmap({ friends, activeId }) {
   </section>;
 }
 
-function chartSeries(friends) {
+function chartSeries(friends, days = 30) {
   const points = [];
-  for (let i = 364; i >= 0; i -= 7) {
+  const step = days > 90 ? 7 : days > 35 ? 3 : 1; 
+  for (let i = days - 1; i >= 0; i -= step) {
     const key = todayKey(-i);
     const point = { date: formatDay(key) };
     friends.forEach((f) => {
       let sum = 0;
-      for (let j = 364; j >= i; j--) {
+      for (let j = 365; j >= i; j--) {
         const day = todayKey(-j);
         sum += f.heatmap?.[day] || 0;
       }
@@ -434,23 +455,23 @@ function chartSeries(friends) {
   return points;
 }
 
-function dailySeries(friends) {
-  return Array.from({ length: 30 }, (_, i) => {
-    const key = todayKey(i - 29);
+function dailySeries(friends, days = 30) {
+  return Array.from({ length: days }, (_, i) => {
+    const key = todayKey(i - days + 1);
     const point = { date: formatDay(key) };
     friends.forEach((f) => (point[f.name] = mergedCount(f, key)));
     return point;
   });
 }
 
-function streakSeries(friends) {
-  return Array.from({ length: 90 }, (_, i) => {
-    const key = todayKey(i - 89);
+function streakSeries(friends, days = 30) {
+  return Array.from({ length: days }, (_, i) => {
+    const key = todayKey(i - days + 1);
     const point = { date: formatDay(key) };
     friends.forEach((f) => {
       let streak = 0;
       for (let j = i; j >= 0; j--) {
-        const day = todayKey(j - 89);
+        const day = todayKey(j - days + 1);
         if (mergedCount(f, day) > 0) streak += 1;
         else break;
       }
@@ -460,19 +481,19 @@ function streakSeries(friends) {
   });
 }
 
-function Analytics({ friends }) {
+function Analytics({ friends, daysToShow }) {
   const [tab, setTab] = useState("progress");
-  const progress = useMemo(() => chartSeries(friends), [friends]);
-  const daily = useMemo(() => dailySeries(friends), [friends]);
-  const streak = useMemo(() => streakSeries(friends), [friends]);
+  const progress = useMemo(() => chartSeries(friends, daysToShow), [friends, daysToShow]);
+  const daily = useMemo(() => dailySeries(friends, daysToShow), [friends, daysToShow]);
+  const streak = useMemo(() => streakSeries(friends, daysToShow), [friends, daysToShow]);
   const breakdown = friends.map((f) => ({ name: f.name, Easy: f.easy, Medium: f.medium, Hard: f.hard }));
   return <section className="panel">
     <div className="section-head"><div><h2>Charts & Analytics</h2><p>Shared manual progress and consistency.</p></div><div className="tabs">{["progress", "daily", "difficulty", "streak"].map((t) => <button key={t} className={tab === t ? "active" : ""} onClick={() => setTab(t)}>{t}</button>)}</div></div>
     <div className="chart-box">
       {tab === "progress" && <ResponsiveContainer width="100%" height={330}><LineChart data={progress}><CartesianGrid stroke="#1f2937" /><XAxis dataKey="date" stroke="#64748b" /><YAxis stroke="#64748b" /><Tooltip content={<ChartTooltip />} isAnimationActive={false} cursor={{ stroke: "rgba(255, 255, 255, 0.12)", strokeWidth: 1, strokeDasharray: "4 4" }} />{friends.map((f) => <Line key={f.id} type="monotone" dataKey={f.name} stroke={f.color} strokeWidth={3} dot={false} />)}</LineChart></ResponsiveContainer>}
-      {tab === "daily" && <ResponsiveContainer width="100%" height={330}><BarChart data={daily}><CartesianGrid stroke="#1f2937" /><XAxis dataKey="date" stroke="#64748b" interval={5} /><YAxis stroke="#64748b" /><Tooltip content={<ChartTooltip />} isAnimationActive={false} cursor={{ fill: "rgba(255, 255, 255, 0.04)" }} />{friends.map((f) => <Bar key={f.id} dataKey={f.name} fill={f.color} radius={[4, 4, 0, 0]} />)}</BarChart></ResponsiveContainer>}
+      {tab === "daily" && <ResponsiveContainer width="100%" height={330}><BarChart data={daily}><CartesianGrid stroke="#1f2937" /><XAxis dataKey="date" stroke="#64748b" interval={Math.max(1, Math.floor(daysToShow / 10))} /><YAxis stroke="#64748b" /><Tooltip content={<ChartTooltip />} isAnimationActive={false} cursor={{ fill: "rgba(255, 255, 255, 0.04)" }} />{friends.map((f) => <Bar key={f.id} dataKey={f.name} fill={f.color} radius={[4, 4, 0, 0]} />)}</BarChart></ResponsiveContainer>}
       {tab === "difficulty" && <ResponsiveContainer width="100%" height={330}><BarChart data={breakdown}><CartesianGrid stroke="#1f2937" /><XAxis dataKey="name" stroke="#64748b" /><YAxis stroke="#64748b" /><Tooltip content={<ChartTooltip />} isAnimationActive={false} cursor={{ fill: "rgba(255, 255, 255, 0.04)" }} /><Bar dataKey="Easy" stackId="a" fill="#22c55e" /><Bar dataKey="Medium" stackId="a" fill="#f59e0b" /><Bar dataKey="Hard" stackId="a" fill="#ef4444" radius={[5, 5, 0, 0]} /></BarChart></ResponsiveContainer>}
-      {tab === "streak" && <ResponsiveContainer width="100%" height={330}><AreaChart data={streak}><CartesianGrid stroke="#1f2937" /><XAxis dataKey="date" stroke="#64748b" interval={12} /><YAxis stroke="#64748b" /><Tooltip content={<ChartTooltip />} isAnimationActive={false} cursor={{ stroke: "rgba(255, 255, 255, 0.12)", strokeWidth: 1, strokeDasharray: "4 4" }} />{friends.map((f) => <Area key={f.id} type="monotone" dataKey={f.name} stroke={f.color} fill={f.color} fillOpacity={0.12} />)}</AreaChart></ResponsiveContainer>}
+      {tab === "streak" && <ResponsiveContainer width="100%" height={330}><AreaChart data={streak}><CartesianGrid stroke="#1f2937" /><XAxis dataKey="date" stroke="#64748b" interval={Math.max(1, Math.floor(daysToShow / 8))} /><YAxis stroke="#64748b" /><Tooltip content={<ChartTooltip />} isAnimationActive={false} cursor={{ stroke: "rgba(255, 255, 255, 0.12)", strokeWidth: 1, strokeDasharray: "4 4" }} />{friends.map((f) => <Area key={f.id} type="monotone" dataKey={f.name} stroke={f.color} fill={f.color} fillOpacity={0.12} />)}</AreaChart></ResponsiveContainer>}
     </div>
   </section>;
 }
@@ -824,6 +845,15 @@ function App() {
 
   const hydratedStats = stats.map((f) => ({ ...f, isYou: f.id === auth.user?.id }));
   const currentFriend = hydratedStats.find((f) => f.id === auth.user?.id);
+  const daysToShow = useMemo(() => {
+    if (!logs.length) return 42; // default to 6 weeks
+    const oldestDateStr = logs.reduce((oldest, log) => log.log_date < oldest ? log.log_date : oldest, todayKey());
+    const oldestDate = new Date(oldestDateStr);
+    const diffTime = Math.abs(new Date() - oldestDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const rawDays = Math.max(30, diffDays + 14); // show at least 30 days, or oldest log date minus 14 days
+    return Math.ceil(rawDays / 7) * 7; // Round to whole weeks
+  }, [logs]);
   useEffect(() => {
     if (hydratedStats.length && !hydratedStats.find((f) => f.id === activeId)) setActiveId(currentFriend?.id || hydratedStats[0].id);
   }, [hydratedStats, activeId, currentFriend]);
@@ -853,9 +883,8 @@ function App() {
       <ActivityFeed logs={logs} friends={hydratedStats} toast={toastNow} />
       <ProfilesPanel friends={hydratedStats} activeId={activeId} setActiveId={setActiveId} openSettings={() => setSettingsOpen(true)} />
       {activeFriend && <PersonalStats friend={activeFriend} friends={hydratedStats} />}
-      <Heatmap friends={hydratedStats} activeId={activeId} />
-      {activeFriend && <Analytics friends={hydratedStats} />}
-      <BattleMode friends={hydratedStats} />
+      <Heatmap friends={hydratedStats} activeId={activeId} daysToShow={daysToShow} />
+      {activeFriend && <Analytics friends={hydratedStats} daysToShow={daysToShow} />}
     </div>
     <button className="fab" onClick={() => setLogOpen(true)}><Plus /><span>Log</span></button>
     <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} profile={auth.profile} auth={auth} reloadFriends={reloadFriends} toast={toastNow} />
