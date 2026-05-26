@@ -2174,39 +2174,7 @@ function App() {
               boxShadow: "0 20px 80px rgba(0,0,0,0.5)"
             }}
           >
-            <div style={{ position: "relative", width: "80px", height: "80px", display: "grid", placeItems: "center" }}>
-              {/* Cute Spinning outer ring */}
-              <motion.div 
-                animate={{ rotate: 360 }}
-                transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
-                style={{ 
-                  position: "absolute",
-                  inset: 0,
-                  borderRadius: "50%",
-                  border: "3px solid transparent",
-                  borderTopColor: "#38bdf8",
-                  borderRightColor: "#a78bfa",
-                  opacity: 0.8
-                }}
-              />
-              {/* Cute breathing inner cat avatar */}
-              <motion.div 
-                animate={{ scale: [1, 1.12, 1] }}
-                transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-                style={{ 
-                  display: "grid",
-                  placeItems: "center",
-                  width: "56px",
-                  height: "56px",
-                  borderRadius: "18px",
-                  background: "linear-gradient(135deg, #a78bfa, #38bdf8)",
-                  color: "#070a18",
-                  boxShadow: "0 8px 24px rgba(56, 189, 248, 0.3)"
-                }}
-              >
-                <Cat size={32} strokeWidth={2.2} />
-              </motion.div>
-            </div>
+            <div className="custom-steps-loader" style={{ marginBottom: "10px" }} />
 
             <div style={{ display: "grid", gap: "8px" }}>
               <h2 style={{ fontSize: "20px", fontWeight: "900", color: "#f3f4f6", margin: 0, letterSpacing: "-0.01em" }}>
