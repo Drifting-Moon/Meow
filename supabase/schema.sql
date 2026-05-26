@@ -50,9 +50,13 @@ drop policy if exists "authenticated can read users" on public.users;
 drop policy if exists "anyone can read users" on public.users;
 drop policy if exists "users insert self" on public.users;
 drop policy if exists "users update self" on public.users;
+drop policy if exists "admins can update all users" on public.users;
 create policy "anyone can read users" on public.users for select to anon, authenticated using (true);
 create policy "users insert self" on public.users for insert to authenticated with check (auth.uid() = id);
 create policy "users update self" on public.users for update to authenticated using (auth.uid() = id) with check (auth.uid() = id);
+create policy "admins can update all users" on public.users for update to authenticated
+  using (exists (select 1 from public.admins where email = auth.jwt() ->> 'email'))
+  with check (exists (select 1 from public.admins where email = auth.jwt() ->> 'email'));
 
 drop policy if exists "authenticated can read manual logs" on public.manual_logs;
 drop policy if exists "anyone can read manual logs" on public.manual_logs;
@@ -68,9 +72,16 @@ drop policy if exists "authenticated can read goals" on public.goals;
 drop policy if exists "anyone can read goals" on public.goals;
 drop policy if exists "goals insert self" on public.goals;
 drop policy if exists "goals update self" on public.goals;
+drop policy if exists "admins can insert all goals" on public.goals;
+drop policy if exists "admins can update all goals" on public.goals;
 create policy "anyone can read goals" on public.goals for select to anon, authenticated using (true);
 create policy "goals insert self" on public.goals for insert to authenticated with check (auth.uid() = user_id);
 create policy "goals update self" on public.goals for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "admins can insert all goals" on public.goals for insert to authenticated
+  with check (exists (select 1 from public.admins where email = auth.jwt() ->> 'email'));
+create policy "admins can update all goals" on public.goals for update to authenticated
+  using (exists (select 1 from public.admins where email = auth.jwt() ->> 'email'))
+  with check (exists (select 1 from public.admins where email = auth.jwt() ->> 'email'));
 
 drop policy if exists "authenticated can read shared goals" on public.shared_goals;
 drop policy if exists "anyone can read shared goals" on public.shared_goals;
