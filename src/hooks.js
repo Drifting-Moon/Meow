@@ -291,3 +291,56 @@ export function useStats(friends, logs) {
 
   return { stats, realtimeStatus: "connected" };
 }
+
+export function useGlobalSettings() {
+  const [settings, setSettings] = useState({
+    finePerMiss: 5,
+    startDate: "2026-05-20",
+    currency: "$"
+  });
+  const [offline, setOffline] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!supabaseConfigured) return;
+    try {
+      const { data, error } = await supabase
+        .from("global_settings")
+        .select("*")
+        .eq("key", "fine-settings")
+        .maybeSingle();
+      if (error) throw error;
+      if (data && data.value) {
+        setSettings(data.value);
+        saveJson("meow:fine-settings:v1", data.value);
+      }
+    } catch (err) {
+      setOffline(true);
+      const local = loadJson("meow:fine-settings:v1", null);
+      if (local) setSettings(local);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+    if (!supabaseConfigured) return undefined;
+    const channel = supabase.channel("global-settings-live-" + Math.random().toString(36).substring(7))
+      .on("postgres_changes", { event: "*", schema: "public", table: "global_settings" }, load)
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [load]);
+
+  const updateSettings = async (patch) => {
+    const next = { ...settings, ...patch };
+    setSettings(next);
+    saveJson("meow:fine-settings:v1", next);
+
+    if (supabaseConfigured) {
+      const { error } = await supabase
+        .from("global_settings")
+        .upsert({ key: "fine-settings", value: next }, { onConflict: "key" });
+      if (error) throw error;
+    }
+  };
+
+  return { settings, updateSettings, offline, reloadSettings: load };
+}

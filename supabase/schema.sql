@@ -149,4 +149,25 @@ insert into public.admins (email, note) values
   ('jayant@gmail.com', 'Primary admin account')
 on conflict (email) do nothing;
 
+-- global_settings table for syncing config (currency, start date, fines etc.)
+create table if not exists public.global_settings (
+  key text primary key,
+  value jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.global_settings enable row level security;
+
+drop policy if exists "anyone can read global settings" on public.global_settings;
+create policy "anyone can read global settings" on public.global_settings
+  for select to anon, authenticated using (true);
+
+drop policy if exists "anyone can insert or update global settings" on public.global_settings;
+create policy "anyone can insert or update global settings" on public.global_settings
+  for all to anon, authenticated using (true) with check (true);
+
+insert into public.global_settings (key, value) values
+  ('fine-settings', '{"finePerMiss": 5, "startDate": "2026-05-20", "currency": "$"}')
+on conflict (key) do nothing;
+
 

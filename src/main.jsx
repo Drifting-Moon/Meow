@@ -43,7 +43,7 @@ import {
   XAxis,
   YAxis
 } from "recharts";
-import { useAuth, useFriends, useGoals, useManualLogs, useSharedGoals, useStats } from "./hooks";
+import { useAuth, useFriends, useGoals, useManualLogs, useSharedGoals, useStats, useGlobalSettings } from "./hooks";
 import { clamp, formatDay, initials, loadJson, saveJson, todayKey } from "./lib/platforms";
 import { supabase } from "./lib/supabase";
 import "./styles.css";
@@ -908,12 +908,21 @@ function MoneyJar({ total }) {
   );
 }
 
-function MoneyBasket({ friends, logs, isAuth, isAdmin, toast }) {
-  const [settings, setSettings] = useState(() => {
+function MoneyBasket({ friends, logs, isAuth, isAdmin, toast, settings: propSettings, updateSettings: propUpdateSettings }) {
+  const [localSettings, setLocalSettings] = useState(() => {
     return loadJson("meow:fine-settings:v1", {
       finePerMiss: 5,
       startDate: "2026-05-20",
       currency: "$"
+    });
+  });
+
+  const settings = propSettings || localSettings;
+  const updateSettings = propUpdateSettings || ((patch) => {
+    setLocalSettings((prev) => {
+      const next = { ...prev, ...patch };
+      saveJson("meow:fine-settings:v1", next);
+      return next;
     });
   });
 
@@ -922,14 +931,6 @@ function MoneyBasket({ friends, logs, isAuth, isAdmin, toast }) {
   });
 
   const [showSettings, setShowSettings] = useState(false);
-
-  const updateSettings = (patch) => {
-    setSettings((prev) => {
-      const next = { ...prev, ...patch };
-      saveJson("meow:fine-settings:v1", next);
-      return next;
-    });
-  };
 
   const recordPayment = (friendId, amount) => {
     setFinesPaid((prev) => {
@@ -1744,8 +1745,8 @@ function AdminProfileManager({ friends, reloadFriends, toast }) {
   );
 }
 
-function AdminDashboard({ friends, reloadFriends, sharedGoals, addSharedGoal, updateSharedGoal, deleteSharedGoal, sharedGoalsOffline, toast }) {
-  const [settings, setSettings] = useState(() => {
+function AdminDashboard({ friends, reloadFriends, sharedGoals, addSharedGoal, updateSharedGoal, deleteSharedGoal, sharedGoalsOffline, toast, settings: propSettings, updateSettings: propUpdateSettings }) {
+  const [localSettings, setLocalSettings] = useState(() => {
     return loadJson("meow:fine-settings:v1", {
       finePerMiss: 5,
       startDate: "2026-05-20",
@@ -1753,12 +1754,17 @@ function AdminDashboard({ friends, reloadFriends, sharedGoals, addSharedGoal, up
     });
   });
 
-  const updateSettings = (patch) => {
-    setSettings((prev) => {
-      const next = { ...prev, ...patch };
-      saveJson("meow:fine-settings:v1", next);
-      return next;
-    });
+  const settings = propSettings || localSettings;
+  const updateSettings = async (patch) => {
+    if (propUpdateSettings) {
+      await propUpdateSettings(patch);
+    } else {
+      setLocalSettings((prev) => {
+        const next = { ...prev, ...patch };
+        saveJson("meow:fine-settings:v1", next);
+        return next;
+      });
+    }
     toast("Fine configuration saved.");
   };
 
@@ -2003,6 +2009,7 @@ function App() {
   const { updateGoal } = useGoals(auth.user || {});
   const { sharedGoals, addSharedGoal, updateSharedGoal, deleteSharedGoal, offline: sharedGoalsOffline } = useSharedGoals(auth.session, auth.user || {});
   const { stats, realtimeStatus } = useStats(friends, logs);
+  const { settings, updateSettings } = useGlobalSettings();
   const [activeId, setActiveId] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
@@ -2087,6 +2094,8 @@ function App() {
           deleteSharedGoal={deleteSharedGoal}
           sharedGoalsOffline={sharedGoalsOffline}
           toast={toastNow}
+          settings={settings}
+          updateSettings={updateSettings}
         />
       ) : (
         <>
@@ -2096,7 +2105,7 @@ function App() {
           {!auth.session && (
             <>
               {/* Fines Basket Total Pool (Only pool card is shown when logged out) */}
-              <MoneyBasket friends={hydratedStats} logs={logs} isAuth={false} isAdmin={false} toast={toastNow} />
+              <MoneyBasket friends={hydratedStats} logs={logs} isAuth={false} isAdmin={false} toast={toastNow} settings={settings} updateSettings={updateSettings} />
 
               {/* Goal Progress Bars (full width card) */}
               <GoalProgressCard friends={hydratedStats} />
@@ -2109,7 +2118,7 @@ function App() {
           {auth.session && (
             <>
               {/* 1. Fine Money Basket (Common) */}
-              <MoneyBasket friends={hydratedStats} logs={logs} isAuth={Boolean(auth.session)} isAdmin={auth.isAdmin} toast={toastNow} />
+              <MoneyBasket friends={hydratedStats} logs={logs} isAuth={Boolean(auth.session)} isAdmin={auth.isAdmin} toast={toastNow} settings={settings} updateSettings={updateSettings} />
 
               {/* 2. Shared Challenges (Common) */}
               <SharedGoalsPanel sharedGoals={sharedGoals} addSharedGoal={addSharedGoal} updateSharedGoal={updateSharedGoal} deleteSharedGoal={deleteSharedGoal} friends={hydratedStats} toast={toastNow} offline={sharedGoalsOffline} isAuth={Boolean(auth.session)} isAdmin={auth.isAdmin} />
