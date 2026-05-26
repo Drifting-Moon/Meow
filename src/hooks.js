@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase, supabaseConfigured } from "./lib/supabase";
-import { CACHE_TTL, PLATFORMS, fetchPlatform, initials, loadJson, saveJson, todayKey } from "./lib/platforms";
+import { countStreak, initials, loadJson, saveJson, todayKey } from "./lib/platforms";
 
 const OFFLINE_KEY = "meow:offline-snapshot:v3";
 
@@ -69,15 +69,6 @@ export function useAuth() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
   };
-  const signup = async (email, password, displayName, avatarColor) => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) throw error;
-    if (data.user) {
-      await supabase.from("users").upsert({ id: data.user.id, display_name: displayName, avatar_color: avatarColor });
-      await supabase.from("goals").upsert({ user_id: data.user.id });
-    }
-  };
-  const loginWithGoogle = async () => supabase.auth.signInWithOAuth({ provider: "google" });
   const logout = async () => supabase.auth.signOut();
   const updateProfile = async (patch) => {
     const { data, error } = await supabase.from("users").update(patch).eq("id", user.id).select("*").single();
@@ -85,7 +76,7 @@ export function useAuth() {
     setProfile(data);
   };
 
-  return { session, user, profile, loading, offline, login, signup, loginWithGoogle, logout, updateProfile, supabaseConfigured };
+  return { session, user, profile, loading, offline, login, logout, updateProfile, supabaseConfigured };
 }
 
 export function useFriends(session) {
@@ -95,16 +86,13 @@ export function useFriends(session) {
   const load = useCallback(async () => {
     if (!session || !supabaseConfigured) return;
     try {
-      const [usersRes, platformsRes, goalsRes] = await Promise.all([
+      const [usersRes, goalsRes] = await Promise.all([
         supabase.from("users").select("*").order("created_at"),
-        supabase.from("platform_usernames").select("*"),
         supabase.from("goals").select("*")
       ]);
-      if (usersRes.error || platformsRes.error || goalsRes.error) throw usersRes.error || platformsRes.error || goalsRes.error;
+      if (usersRes.error || goalsRes.error) throw usersRes.error || goalsRes.error;
       const next = usersRes.data.map((u) => {
-        const platformRows = platformsRes.data.filter((p) => p.user_id === u.id);
         const goal = goalsRes.data.find((g) => g.user_id === u.id) || {};
-        const platforms = Object.fromEntries(PLATFORMS.map((p) => [p, platformRows.find((row) => row.platform === p) || { platform: p, username: "", auto_sync_enabled: false }]));
         return {
           id: u.id,
           name: u.display_name,
@@ -112,7 +100,6 @@ export function useFriends(session) {
           initials: initials(u.display_name),
           color: u.avatar_color,
           avatar_color: u.avatar_color,
-          platforms,
           dailyGoal: goal.daily_target ?? 2,
           longGoal: goal.long_term_target ?? 300,
           deadline: goal.long_term_deadline
@@ -131,7 +118,6 @@ export function useFriends(session) {
     if (!session || !supabaseConfigured) return undefined;
     const channel = supabase.channel("friends-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "users" }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "platform_usernames" }, load)
       .on("postgres_changes", { event: "*", schema: "public", table: "goals" }, load)
       .subscribe();
     return () => supabase.removeChannel(channel);
@@ -182,130 +168,78 @@ export function useManualLogs(session) {
 
 export function useGoals(user) {
   const updateGoal = async (patch) => {
-    const { error } = await supabase.from("goals").upsert({ user_id: user.id, ...patch });
+    const { error } = await supabase.from("goals").upsert({ user_id: user.id, ...patch }, { onConflict: "user_id" });
     if (error) throw error;
   };
   return { updateGoal };
 }
 
-function platformEmpty(platform, status = "idle") {
-  return { platform, heatmap: {}, todaySolved: 0, totalSolved: 0, streak: 0, status };
-}
+export function useSharedGoals(session, user) {
+  const [sharedGoals, setSharedGoals] = useState([]);
+  const [offline, setOffline] = useState(false);
 
-function manualFor(logs, userId, platform) {
-  return logs.filter((log) => log.user_id === userId && (platform ? log.platform === platform : true));
-}
-
-function mergePlatform(apiData, logs, platformRow, userId, platform) {
-  const auto = Boolean(platformRow?.username && platformRow?.auto_sync_enabled);
-  const usernameSetAt = platformRow?.updated_at ? new Date(platformRow.updated_at) : null;
-  const relevant = manualFor(logs, userId, platform).filter((log) => {
-    if (!auto) return true;
-    if (!usernameSetAt) return false;
-    return new Date(`${log.log_date}T00:00:00`) < usernameSetAt;
-  });
-  const heatmap = { ...(auto ? apiData?.heatmap || {} : {}) };
-  relevant.forEach((log) => {
-    heatmap[log.log_date] = (heatmap[log.log_date] || 0) + (Number(log.count) || 0);
-  });
-  const manualTotal = relevant.reduce((s, log) => s + (Number(log.count) || 0), 0);
-  const manualEasy = relevant.reduce((s, log) => s + (Number(log.difficulty_easy) || 0), 0);
-  const manualMedium = relevant.reduce((s, log) => s + (Number(log.difficulty_medium) || 0), 0);
-  const manualHard = relevant.reduce((s, log) => s + (Number(log.difficulty_hard) || 0), 0);
-  return {
-    ...(auto ? apiData || platformEmpty(platform) : platformEmpty(platform, platformRow?.username ? "disabled" : "manual")),
-    heatmap,
-    todaySolved: heatmap[todayKey()] || 0,
-    totalSolved: (auto ? Number(apiData?.totalSolved) || 0 : 0) + manualTotal,
-    easy: (auto ? Number(apiData?.easy) || 0 : 0) + manualEasy,
-    medium: (auto ? Number(apiData?.medium) || 0 : 0) + manualMedium,
-    hard: (auto ? Number(apiData?.hard) || 0 : 0) + manualHard,
-    sourceIcon: auto && relevant.length ? "sync+manual" : auto ? "sync" : "manual"
-  };
-}
-
-export function useStats(friends, logs, session) {
-  const [cacheRows, setCacheRows] = useState([]);
-  const [syncing, setSyncing] = useState({});
-  const [realtimeStatus, setRealtimeStatus] = useState("connecting");
-
-  const loadCache = useCallback(async () => {
+  const load = useCallback(async () => {
     if (!session || !supabaseConfigured) return;
-    const { data, error } = await supabase.from("cached_stats").select("*");
+    const { data, error } = await supabase.from("shared_goals").select("*").order("created_at");
     if (error) throw error;
-    setCacheRows(data || []);
-    saveJson(OFFLINE_KEY, { ...loadJson(OFFLINE_KEY, {}), cacheRows: data || [] });
+    setSharedGoals(data || []);
+    saveJson(OFFLINE_KEY, { ...loadJson(OFFLINE_KEY, {}), sharedGoals: data || [] });
   }, [session]);
 
-  const refreshPlatform = useCallback(async (friend, platform, force = false, index = 0) => {
-    const row = friend.platforms?.[platform];
-    if (!session || !supabaseConfigured || !row?.username || !row.auto_sync_enabled) return;
-    const cache = cacheRows.find((c) => c.user_id === friend.id && c.platform === platform);
-    const fresh = cache?.fetched_at && Date.now() - new Date(cache.fetched_at).getTime() < CACHE_TTL;
-    if (!force && fresh) return;
-    setSyncing((prev) => ({ ...prev, [`${friend.id}:${platform}`]: true }));
-    try {
-      const data = await fetchPlatform(platform, row.username, index);
-      const payload = { user_id: friend.id, platform, data, fetched_at: new Date().toISOString() };
-      const { data: saved, error } = await supabase.from("cached_stats").upsert(payload, { onConflict: "user_id,platform" }).select("*").single();
-      if (error) throw error;
-      setCacheRows((prev) => [...prev.filter((c) => !(c.user_id === friend.id && c.platform === platform)), saved]);
-    } finally {
-      setSyncing((prev) => ({ ...prev, [`${friend.id}:${platform}`]: false }));
-    }
-  }, [cacheRows, session]);
-
   useEffect(() => {
-    loadCache().catch(() => setCacheRows(loadJson(OFFLINE_KEY, { cacheRows: [] }).cacheRows || []));
-  }, [loadCache]);
-
-  useEffect(() => {
-    if (!session || !supabaseConfigured) return undefined;
-    const channel = supabase.channel("stats-live")
-      .on("postgres_changes", { event: "*", schema: "public", table: "cached_stats" }, loadCache)
-      .subscribe((status) => setRealtimeStatus(status === "SUBSCRIBED" ? "connected" : "connecting"));
-    return () => supabase.removeChannel(channel);
-  }, [loadCache, session]);
-
-  useEffect(() => {
-    friends.forEach((friend, index) => {
-      PLATFORMS.forEach((platform) => {
-        refreshPlatform(friend, platform, false, index).catch(() => {});
-      });
+    load().catch(() => {
+      setOffline(true);
+      setSharedGoals(loadJson(OFFLINE_KEY, { sharedGoals: [] }).sharedGoals || []);
     });
-  }, [friends, refreshPlatform]);
+    if (!session || !supabaseConfigured) return undefined;
+    const channel = supabase.channel("shared-goals-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "shared_goals" }, load)
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [load, session]);
 
+  const addSharedGoal = async (goal) => {
+    const payload = {
+      title: goal.title.trim(),
+      description: goal.description?.trim() || null,
+      daily_target: Number(goal.daily_target) || 1,
+      long_term_target: Number(goal.long_term_target) || 100,
+      deadline: goal.deadline || null,
+      color: goal.color || "#38bdf8",
+      created_by: user.id
+    };
+    if (!payload.title) throw new Error("Goal name is required.");
+    const { error } = await supabase.from("shared_goals").insert(payload);
+    if (error) throw error;
+  };
+
+  const updateSharedGoal = async (id, patch) => {
+    const { error } = await supabase.from("shared_goals").update(patch).eq("id", id);
+    if (error) throw error;
+  };
+
+  return { sharedGoals, addSharedGoal, updateSharedGoal, reloadSharedGoals: load, offline };
+}
+
+export function useStats(friends, logs) {
   const stats = useMemo(() => friends.map((friend) => {
-    const platforms = Object.fromEntries(PLATFORMS.map((platform) => {
-      const row = friend.platforms?.[platform];
-      const cache = cacheRows.find((c) => c.user_id === friend.id && c.platform === platform);
-      const stale = cache?.fetched_at ? Date.now() - new Date(cache.fetched_at).getTime() > CACHE_TTL : false;
-      const syncingKey = `${friend.id}:${platform}`;
-      const apiData = cache?.data ? { ...cache.data, stale, status: syncing[syncingKey] ? "loading" : stale ? "stale" : "loaded", fetched_at: cache.fetched_at } : platformEmpty(platform, row?.auto_sync_enabled ? "loading" : "manual");
-      return [platform, mergePlatform(apiData, logs, row, friend.id, platform)];
-    }));
-    const otherLogs = manualFor(logs, friend.id, "other");
-    const otherTotal = otherLogs.reduce((s, log) => s + Number(log.count || 0), 0);
-    const otherToday = otherLogs.filter((log) => log.log_date === todayKey()).reduce((s, log) => s + Number(log.count || 0), 0);
+    const friendLogs = logs.filter((log) => log.user_id === friend.id);
     const heatmap = {};
-    Object.values(platforms).forEach((p) => Object.entries(p.heatmap || {}).forEach(([key, count]) => { heatmap[key] = (heatmap[key] || 0) + count; }));
-    otherLogs.forEach((log) => { heatmap[log.log_date] = (heatmap[log.log_date] || 0) + Number(log.count || 0); });
-    const totalSolved = Object.values(platforms).reduce((s, p) => s + Number(p.totalSolved || 0), 0) + otherTotal;
+    friendLogs.forEach((log) => { heatmap[log.log_date] = (heatmap[log.log_date] || 0) + Number(log.count || 0); });
     return {
       ...friend,
-      ...platforms,
       heatmap,
-      totalSolved,
-      todaySolved: Object.values(platforms).reduce((s, p) => s + Number(p.todaySolved || 0), 0) + otherToday,
-      easy: Object.values(platforms).reduce((s, p) => s + Number(p.easy || 0), 0) + otherLogs.reduce((s, l) => s + Number(l.difficulty_easy || 0), 0),
-      medium: Object.values(platforms).reduce((s, p) => s + Number(p.medium || 0), 0) + otherLogs.reduce((s, l) => s + Number(l.difficulty_medium || 0), 0),
-      hard: Object.values(platforms).reduce((s, p) => s + Number(p.hard || 0), 0) + otherLogs.reduce((s, l) => s + Number(l.difficulty_hard || 0), 0),
-      streak: Math.max(...Object.values(platforms).map((p) => Number(p.streak || 0)), 0),
-      loading: Object.values(platforms).some((p) => p.status === "loading"),
-      sourceIcon: Object.values(platforms).some((p) => p.sourceIcon === "sync") ? "sync" : "manual",
-      lastFetched: Math.max(...cacheRows.filter((c) => c.user_id === friend.id).map((c) => new Date(c.fetched_at).getTime()), 0)
+      totalSolved: friendLogs.reduce((s, log) => s + Number(log.count || 0), 0),
+      todaySolved: heatmap[todayKey()] || 0,
+      easy: friendLogs.reduce((s, l) => s + Number(l.difficulty_easy || 0), 0),
+      medium: friendLogs.reduce((s, l) => s + Number(l.difficulty_medium || 0), 0),
+      hard: friendLogs.reduce((s, l) => s + Number(l.difficulty_hard || 0), 0),
+      streak: countStreak(heatmap),
+      loading: false,
+      sourceIcon: "manual",
+      lastFetched: 0
     };
-  }), [friends, logs, cacheRows, syncing]);
+  }), [friends, logs]);
 
-  return { stats, refreshPlatform, realtimeStatus, reloadCache: loadCache };
+  return { stats, realtimeStatus: "connected" };
 }
