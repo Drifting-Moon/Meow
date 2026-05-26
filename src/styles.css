@@ -58,7 +58,7 @@ main { min-height: 100vh; position: relative; overflow-x: hidden; }
 .wavy { overflow: hidden; border: 1px solid var(--line); border-radius: 28px; background: var(--panel); }
 .wave { display: none; }
 .wave.two { display: none; }
-.hero { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: stretch; padding: 34px; }
+.hero { display: block; padding: 48px 34px; }
 .eyebrow { display: inline-flex; gap: 8px; align-items: center; color: var(--green); font-family: "Geist Mono", monospace; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; }
 h1, h2, p { margin: 0; }
 h1 { margin-top: 14px; font-size: clamp(44px, 7vw, 96px); line-height: .9; letter-spacing: 0; }
@@ -76,7 +76,7 @@ h2 { font-size: clamp(24px, 3vw, 38px); letter-spacing: 0; }
 .king-card strong { font-size: 42px; }
 .king-card small { color: var(--muted); }
 .king-trophy { position: absolute; right: 20px; top: 18px; width: 74px; height: 74px; color: var(--amber); filter: drop-shadow(0 4px 14px rgba(245,158,11,.16)); }
-.leader-strip { display: grid; grid-template-columns: auto 1fr; gap: 18px; padding: 0 34px 28px; align-items: center; }
+.leader-strip { display: block; padding: 0 34px 28px; }
 .rank-bars { display: grid; gap: 8px; }
 .rank-row { display: grid; grid-template-columns: 42px 90px 1fr 60px; gap: 10px; align-items: center; border: 0; background: transparent; color: var(--muted); }
 .rank-row em, .stat-number, .goal-big { font-family: "Geist Mono", monospace; font-style: normal; color: var(--text); }

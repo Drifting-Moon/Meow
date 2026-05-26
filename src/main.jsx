@@ -7,6 +7,7 @@ import {
   Cat,
   Check,
   ChevronDown,
+  Clock,
   Flame,
   GitGraph,
   Lock,
@@ -334,23 +335,14 @@ function TodayStrip({ friends, realtimeStatus }) {
 
 function Hero({ friends, activeId, setActiveId }) {
   const ranked = rankFriends(friends);
-  const king = [...friends].sort((a, b) => b.todaySolved - a.todaySolved)[0] || friends[0];
   return <WavyBackground>
     <section className="hero">
       <div>
         <div className="eyebrow"><Sparkles size={15} /> Shared dashboard</div>
-        <h1><TypewriterEffect text="Solve together. Compete daily." /></h1>
-        <p>Track and compare your solved problems in realtime. Set common targets, log daily progress, and build streaks together.</p>
+        <h1><TypewriterEffect text="Who's grinding hardest?" /></h1>
       </div>
-      <Spotlight className="king-card">
-        <span>Today's King</span>
-        <strong>{king?.isYou ? "You" : king?.name || "Syncing"}</strong>
-        <small>{king ? `${king.todaySolved} problems solved today` : "Add a manual log to begin"}</small>
-        <Trophy className="king-trophy" />
-      </Spotlight>
     </section>
     <div className="leader-strip">
-      <AnimatedTooltip friends={ranked} activeId={activeId} onSelect={setActiveId} />
       <div className="rank-bars">
         {ranked.map((f, i) => <button key={f.id} onClick={() => setActiveId(f.id)} className="rank-row">
           <span>#{i + 1}</span><b style={{ color: f.color }}>{f.isYou ? "You" : f.name}</b><ProgressBar value={(f.totalSolved / Math.max(1, ranked[0]?.totalSolved || 1)) * 100} color={f.color} /><em>{f.loading ? "..." : f.totalSolved}</em>
@@ -612,6 +604,17 @@ function SharedGoalsPanel({ sharedGoals, addSharedGoal, updateSharedGoal, delete
 
     <div className="shared-goal-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))" }}>
       {goals.map((goal) => {
+        const calculateDaysLeft = (deadlineStr) => {
+          if (!deadlineStr) return null;
+          const deadline = new Date(deadlineStr);
+          const today = new Date();
+          today.setHours(0,0,0,0);
+          const diffTime = deadline - today;
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          return diffDays;
+        };
+        const daysLeft = calculateDaysLeft(goal.deadline);
+
         return <CardSpotlight key={goal.id} className="shared-goal-card" style={{ "--you": goal.color, "--tag": goal.color, display: "grid", gap: "14px" }}>
           <div>
             <div className="stat-head"><Target size={18} style={{ color: goal.color }} /><span>Shared Target</span></div>
@@ -622,6 +625,19 @@ function SharedGoalsPanel({ sharedGoals, addSharedGoal, updateSharedGoal, delete
               <span>•</span>
               <span><b>{goal.long_term_target} total</b>{goal.deadline ? ` by ${goal.deadline}` : ""}</span>
             </p>
+            {daysLeft !== null && (
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "10px" }}>
+                <span className="status-pill loaded" style={{ margin: 0, fontSize: "11px", display: "flex", alignItems: "center", gap: "5px", background: "rgba(34,197,94,0.06)", color: "#86efac", borderColor: "rgba(34,197,94,0.2)" }}>
+                  <Clock size={12} />
+                  {daysLeft > 0 ? `${daysLeft} days left` : daysLeft === 0 ? "Ends today!" : "Challenge ended"}
+                </span>
+                {daysLeft > 0 && (
+                  <span className="status-pill loaded" style={{ margin: 0, fontSize: "11px", display: "flex", alignItems: "center", gap: "5px", background: "rgba(56,189,248,0.06)", color: "#87cef8", borderColor: "rgba(56,189,248,0.2)" }}>
+                    Req: {(goal.long_term_target / daysLeft).toFixed(1)}/day
+                  </span>
+                )}
+              </div>
+            )}
             {goal.id !== "default" && (
               <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
                 <button className="secondary mini-retry" onClick={() => startEdit(goal)} style={{ fontSize: "11px", padding: "4px 8px", minWidth: "50px", height: "24px" }}>Edit</button>
@@ -634,11 +650,27 @@ function SharedGoalsPanel({ sharedGoals, addSharedGoal, updateSharedGoal, delete
             {friends.map((f) => {
               const todayPct = (f.todaySolved / Math.max(1, goal.daily_target)) * 100;
               const totalPct = (f.totalSolved / Math.max(1, goal.long_term_target)) * 100;
+              const remaining = Math.max(0, goal.long_term_target - f.totalSolved);
+              const individualRequiredPace = (daysLeft && daysLeft > 0)
+                ? (remaining / daysLeft).toFixed(1)
+                : null;
+
               return (
                 <div key={f.id} className="friend-goal-row" style={{ display: "grid", gap: "8px", padding: "10px", border: "1px solid var(--line)", borderRadius: "12px", background: "rgba(2, 6, 23, 0.4)" }}>
-                  <div className="friend-line" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                    <span className="mini-avatar" style={{ "--tag": f.color, width: "22px", height: "22px", fontSize: "10px" }}>{f.initials}</span>
-                    <b style={{ color: f.color, fontSize: "13px" }}>{f.isYou ? "You" : f.name}</b>
+                  <div className="friend-line" style={{ display: "flex", gap: "8px", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                      <span className="mini-avatar" style={{ "--tag": f.color, width: "22px", height: "22px", fontSize: "10px" }}>{f.initials}</span>
+                      <b style={{ color: f.color, fontSize: "13px" }}>{f.isYou ? "You" : f.name}</b>
+                    </div>
+                    {remaining > 0 ? (
+                      <span className="muted" style={{ fontSize: "11px", fontFamily: "Geist Mono, monospace" }}>
+                        {remaining} left {individualRequiredPace && `• Req: ${individualRequiredPace}/d`}
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: "11px", color: "var(--green)", fontWeight: "800", fontFamily: "Geist Mono, monospace" }}>
+                        🎉 Finished
+                      </span>
+                    )}
                   </div>
                   
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
@@ -701,21 +733,6 @@ function ProfilesPanel({ friends, activeId, setActiveId, openSettings }) {
         </div>
         {friend.isYou ? <button className="primary" onClick={openSettings}><Settings size={15} /> Edit Profile</button> : <button className="secondary" onClick={() => setActiveId(friend.id)}>View Profile</button>}
       </CardSpotlight>)}
-    </div>
-  </section>;
-}
-
-function QuickOptions({ openSettings, openLog }) {
-  return <section className="panel quick-options" style={{ padding: "16px 20px" }}>
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
-      <div>
-        <h2 style={{ fontSize: "20px", fontWeight: "700" }}>Quick Actions</h2>
-        <p className="muted" style={{ fontSize: "13px", marginTop: "2px" }}>Log daily problem solves or edit your profile settings.</p>
-      </div>
-      <div style={{ display: "flex", gap: "10px" }}>
-        <button className="primary" onClick={openLog} style={{ padding: "10px 16px", borderRadius: "10px" }}><Plus size={16} /> Add Manual Log</button>
-        <button className="secondary" onClick={openSettings} style={{ padding: "10px 16px", borderRadius: "10px" }}><Settings size={16} /> Edit My Profile</button>
-      </div>
     </div>
   </section>;
 }
@@ -879,7 +896,7 @@ function App() {
       {(auth.offline || friendsOffline) && <div className="offline-banner">Offline mode: showing local cached dashboard data.</div>}
       <TodayStrip friends={hydratedStats} realtimeStatus={realtimeStatus} />
       <Hero friends={hydratedStats} activeId={activeId} setActiveId={setActiveId} />
-      <QuickOptions openSettings={() => setSettingsOpen(true)} openLog={() => setLogOpen(true)} />
+      <SharedGoalsPanel sharedGoals={sharedGoals} addSharedGoal={addSharedGoal} updateSharedGoal={updateSharedGoal} deleteSharedGoal={deleteSharedGoal} friends={hydratedStats} toast={toastNow} offline={sharedGoalsOffline} />
       <ActivityFeed logs={logs} friends={hydratedStats} toast={toastNow} />
       <ProfilesPanel friends={hydratedStats} activeId={activeId} setActiveId={setActiveId} openSettings={() => setSettingsOpen(true)} />
       {activeFriend && <PersonalStats friend={activeFriend} friends={hydratedStats} />}
