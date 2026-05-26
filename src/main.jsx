@@ -77,7 +77,7 @@ function weekTotal(friend) {
 }
 
 function rankFriends(friends) {
-  return [...friends].sort((a, b) => Number(b.isYou) - Number(a.isYou) || b.totalSolved - a.totalSolved);
+  return [...friends].sort((a, b) => b.totalSolved - a.totalSolved);
 }
 
 function calculateEstimatedDoneDate(friend, startDateStr = "2026-05-20") {
@@ -2032,8 +2032,12 @@ function App() {
   }, [logs]);
 
   useEffect(() => {
-    if (hydratedStats.length && !hydratedStats.find((f) => f.id === activeId)) setActiveId(currentFriend?.id || hydratedStats[0].id);
-  }, [hydratedStats, activeId, currentFriend]);
+    if (auth.user?.id) {
+      setActiveId(auth.user.id);
+    } else if (hydratedStats.length && !hydratedStats.find((f) => f.id === activeId)) {
+      setActiveId(hydratedStats[0].id);
+    }
+  }, [auth.user?.id, hydratedStats, activeId]);
 
   useEffect(() => {
     if (lastRealtimeLog && lastRealtimeLog.user_id !== auth.user?.id) setToast("Logged by a friend just now");
