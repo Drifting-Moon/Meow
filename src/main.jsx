@@ -178,6 +178,143 @@ function GoalProgressCard({ friends, startDate }) {
   );
 }
 
+function CompetitionPacePanel({ friends, logs, startDate }) {
+  const start = new Date(startDate || "2026-05-20");
+  start.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffTime = Math.abs(today - start);
+  const daysPassed = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+
+  const rankedFriends = [...friends].map((f) => {
+    const solved = f.totalSolved || 0;
+    const target = f.longGoal || 300;
+    const dailyPace = solved / daysPassed;
+    const expectedSolved = (f.dailyGoal || 2) * daysPassed;
+    const behind = Math.max(0, expectedSolved - solved);
+    const remaining = Math.max(0, target - solved);
+    const daysNeeded = dailyPace > 0 ? Math.ceil(remaining / dailyPace) : Infinity;
+
+    // Last 7 days solves
+    const friendLogs = logs.filter((l) => l.user_id === f.id);
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const last7DaysSolved = friendLogs
+      .filter((l) => new Date(l.log_date) >= sevenDaysAgo)
+      .reduce((sum, l) => sum + Number(l.count || 0), 0);
+
+    return {
+      ...f,
+      dailyPace,
+      expectedSolved,
+      behind,
+      daysNeeded,
+      last7DaysSolved
+    };
+  });
+
+  // Calculate superlatives
+  const highestPace = [...rankedFriends].sort((a, b) => b.dailyPace - a.dailyPace)[0];
+  const highestStreak = [...rankedFriends].sort((a, b) => b.streak - a.streak)[0];
+  const highest7Days = [...rankedFriends].sort((a, b) => b.last7DaysSolved - a.last7DaysSolved)[0];
+
+  return (
+    <CardSpotlight className="panel competition-pace-panel" style={{ padding: "20px", marginTop: "18px", width: "100%" }}>
+      <div className="section-head" style={{ marginBottom: "16px" }}>
+        <div>
+          <h2 style={{ fontSize: "16px", fontWeight: "800", margin: 0 }}>Competition & Pace Leaderboard</h2>
+          <p className="muted" style={{ fontSize: "12px", margin: "4px 0 0 0" }}>Deep-dive comparison metrics, weekly velocity, and competition standings.</p>
+        </div>
+        <Swords size={18} style={{ color: "var(--amber)" }} />
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px" }}>
+        
+        {/* 1. Velocity Leaderboard */}
+        <div style={{ padding: "16px", border: "1px solid var(--line)", borderRadius: "16px", background: "rgba(2, 6, 23, 0.35)" }}>
+          <h3 style={{ fontSize: "13px", fontWeight: "800", margin: "0 0 12px 0", color: "#38bdf8", display: "flex", alignItems: "center", gap: "6px" }}>
+            <Zap size={14} /> Solves Velocity (per day)
+          </h3>
+          <div style={{ display: "grid", gap: "12px" }}>
+            {rankedFriends.sort((a, b) => b.dailyPace - a.dailyPace).map((f) => (
+              <div key={f.id} style={{ display: "grid", gap: "6px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
+                  <span style={{ color: f.color, fontWeight: "700" }}>{f.name}</span>
+                  <span className="muted" style={{ fontFamily: "Geist Mono, monospace" }}>
+                    <b>{f.dailyPace.toFixed(1)}/d</b> avg
+                  </span>
+                </div>
+                <div style={{ height: "6px", background: "#111827", borderRadius: "99px", overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${Math.min(100, (f.dailyPace / 4) * 100)}%`, background: f.color, borderRadius: "inherit" }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 2. 7-Day Sprint Race */}
+        <div style={{ padding: "16px", border: "1px solid var(--line)", borderRadius: "16px", background: "rgba(2, 6, 23, 0.35)" }}>
+          <h3 style={{ fontSize: "13px", fontWeight: "800", margin: "0 0 12px 0", color: "#a78bfa", display: "flex", alignItems: "center", gap: "6px" }}>
+            <Flame size={14} /> 7-Day Sprint (Total Solves)
+          </h3>
+          <div style={{ display: "grid", gap: "12px" }}>
+            {rankedFriends.sort((a, b) => b.last7DaysSolved - a.last7DaysSolved).map((f) => (
+              <div key={f.id} style={{ display: "grid", gap: "6px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
+                  <span style={{ color: f.color, fontWeight: "700" }}>{f.name}</span>
+                  <span className="muted" style={{ fontFamily: "Geist Mono, monospace" }}>
+                    <b>{f.last7DaysSolved} solved</b>
+                  </span>
+                </div>
+                <div style={{ height: "6px", background: "#111827", borderRadius: "99px", overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${Math.min(100, (f.last7DaysSolved / 28) * 100)}%`, background: f.color, borderRadius: "inherit" }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 3. Competition Badges / Standings */}
+        <div style={{ padding: "16px", border: "1px solid var(--line)", borderRadius: "16px", background: "rgba(2, 6, 23, 0.35)", display: "grid", gap: "10px", alignContent: "start" }}>
+          <h3 style={{ fontSize: "13px", fontWeight: "800", margin: "0 0 4px 0", color: "#fbbf24", display: "flex", alignItems: "center", gap: "6px" }}>
+            <Award size={14} /> Competition Superlatives
+          </h3>
+          
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "12px" }}>
+            {highestPace && highestPace.dailyPace > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 10px", background: "rgba(56, 189, 248, 0.08)", border: "1px solid rgba(56, 189, 248, 0.2)", borderRadius: "10px" }}>
+                <span style={{ fontSize: "14px" }}>🏆</span>
+                <div>
+                  <b style={{ color: highestPace.color }}>{highestPace.name}</b> is the <b>Pace Leader</b> ({highestPace.dailyPace.toFixed(1)}/d)
+                </div>
+              </div>
+            )}
+            
+            {highest7Days && highest7Days.last7DaysSolved > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 10px", background: "rgba(167, 139, 250, 0.08)", border: "1px solid rgba(167, 139, 250, 0.2)", borderRadius: "10px" }}>
+                <span style={{ fontSize: "14px" }}>⚡</span>
+                <div>
+                  <b style={{ color: highest7Days.color }}>{highest7Days.name}</b> is on a <b>Sprint Streak</b> ({highest7Days.last7DaysSolved} problems this week)
+                </div>
+              </div>
+            )}
+
+            {highestStreak && highestStreak.streak > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 10px", background: "rgba(251, 146, 60, 0.08)", border: "1px solid rgba(251, 146, 60, 0.2)", borderRadius: "10px" }}>
+                <span style={{ fontSize: "14px" }}>🔥</span>
+                <div>
+                  <b style={{ color: highestStreak.color }}>{highestStreak.name}</b> has the <b>Highest Streak</b> ({highestStreak.streak} days)
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+      </div>
+    </CardSpotlight>
+  );
+}
+
 function AnimatedCounter({ value, suffix = "", className = "" }) {
   const motionValue = useMotionValue(0);
   const spring = useSpring(motionValue, { duration: 1200, bounce: 0 });
@@ -2273,13 +2410,16 @@ function App() {
           <TodayStrip friends={hydratedStats} realtimeStatus={realtimeStatus} />
           <Hero friends={hydratedStats} activeId={activeId} setActiveId={setActiveId} />
 
+          {/* Goal Progress Bars (full width card) */}
+          <GoalProgressCard friends={hydratedStats} startDate={settings.startDate} />
+
+          {/* Competition & Pace Leaderboard */}
+          <CompetitionPacePanel friends={hydratedStats} logs={logs} startDate={settings.startDate} />
+
           {!auth.session && (
             <>
               {/* Fines Basket Total Pool (Only pool card is shown when logged out) */}
               <MoneyBasket friends={hydratedStats} logs={logs} isAuth={false} isAdmin={false} toast={toastNow} settings={settings} updateSettings={updateSettings} finesPaid={finesPaid} updateFinesPaid={updateFinesPaid} />
-
-              {/* Goal Progress Bars (full width card) */}
-              <GoalProgressCard friends={hydratedStats} startDate={settings.startDate} />
 
               {/* All contestants heatmaps displayed together for public view */}
               <Heatmap friends={hydratedStats} daysToShow={daysToShow} />
