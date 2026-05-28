@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import {
+  Activity,
   Award,
   BarChart3,
   Cat,
@@ -9,6 +10,7 @@ import {
   ChevronDown,
   Clock,
   Coins,
+  Crown,
   DollarSign,
   Flame,
   GitGraph,
@@ -16,12 +18,14 @@ import {
   LogOut,
   Medal,
   Plus,
+  Rocket,
   Settings,
   Shield,
   Sparkles,
   Swords,
   Target,
   Trash2,
+  TrendingUp,
   Trophy,
   User,
   X,
@@ -44,7 +48,7 @@ import {
   YAxis
 } from "recharts";
 import { useAuth, useFriends, useGoals, useManualLogs, useSharedGoals, useStats, useGlobalSettings } from "./hooks";
-import { clamp, formatDay, initials, loadJson, saveJson, todayKey } from "./lib/platforms";
+import { clamp, dateKey, formatDay, initials, loadJson, saveJson, todayKey } from "./lib/platforms";
 import { supabase } from "./lib/supabase";
 import "./styles.css";
 
@@ -94,7 +98,7 @@ function calculateEstimatedDoneDate(friend, globalStartDateStr = "2026-05-20") {
   const target = friend.longGoal || 300;
 
   if (solved >= target) {
-    return { estString: "Completed! 🎉", paceStatus: "🚀 Ahead of schedule", paceColor: "var(--green)", daysPassed, dailyPace: solved / daysPassed };
+    return { estString: "Completed!", paceStatus: "Ahead of schedule", paceColor: "var(--green)", daysPassed, dailyPace: solved / daysPassed };
   }
 
   const dailyPace = solved / daysPassed;
@@ -103,11 +107,11 @@ function calculateEstimatedDoneDate(friend, globalStartDateStr = "2026-05-20") {
   let paceColor = "";
 
   if (solved >= expectedSolved) {
-    paceStatus = "🚀 Ahead of schedule";
+    paceStatus = "Ahead of schedule";
     paceColor = "var(--green)";
   } else {
     const behind = expectedSolved - solved;
-    paceStatus = `⚠️ ${behind} problems behind pace`;
+    paceStatus = `${behind} problems behind pace`;
     paceColor = "#f59e0b";
   }
 
@@ -287,7 +291,7 @@ function CompetitionPacePanel({ friends, logs, startDate }) {
           <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "12px" }}>
             {highestPace && highestPace.dailyPace > 0 && (
               <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 10px", background: "rgba(56, 189, 248, 0.08)", border: "1px solid rgba(56, 189, 248, 0.2)", borderRadius: "10px" }}>
-                <span style={{ fontSize: "14px" }}>🏆</span>
+                <Trophy size={14} style={{ color: "#38bdf8" }} />
                 <div>
                   <b style={{ color: highestPace.color }}>{highestPace.name}</b> is the <b>Pace Leader</b> ({highestPace.dailyPace.toFixed(1)}/d)
                 </div>
@@ -296,7 +300,7 @@ function CompetitionPacePanel({ friends, logs, startDate }) {
             
             {highest7Days && highest7Days.last7DaysSolved > 0 && (
               <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 10px", background: "rgba(167, 139, 250, 0.08)", border: "1px solid rgba(167, 139, 250, 0.2)", borderRadius: "10px" }}>
-                <span style={{ fontSize: "14px" }}>⚡</span>
+                <Zap size={14} style={{ color: "#a78bfa" }} />
                 <div>
                   <b style={{ color: highest7Days.color }}>{highest7Days.name}</b> is on a <b>Sprint Streak</b> ({highest7Days.last7DaysSolved} problems this week)
                 </div>
@@ -305,7 +309,7 @@ function CompetitionPacePanel({ friends, logs, startDate }) {
 
             {highestStreak && highestStreak.streak > 0 && (
               <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 10px", background: "rgba(251, 146, 60, 0.08)", border: "1px solid rgba(251, 146, 60, 0.2)", borderRadius: "10px" }}>
-                <span style={{ fontSize: "14px" }}>🔥</span>
+                <Flame size={14} style={{ color: "#fb923c" }} />
                 <div>
                   <b style={{ color: highestStreak.color }}>{highestStreak.name}</b> has the <b>Highest Streak</b> ({highestStreak.streak} days)
                 </div>
@@ -319,121 +323,13 @@ function CompetitionPacePanel({ friends, logs, startDate }) {
   );
 }
 
-/* ── Head-to-Head Duel Cards ── */
-function HeadToHeadDuels({ friends, logs, startDate }) {
-  if (friends.length < 2) return null;
 
-  const pairs = [];
-  for (let i = 0; i < friends.length; i++) {
-    for (let j = i + 1; j < friends.length; j++) {
-      pairs.push([friends[i], friends[j]]);
-    }
-  }
-
-  const getWeekSolves = (f) => {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    return logs
-      .filter((l) => l.user_id === f.id && new Date(l.log_date) >= sevenDaysAgo)
-      .reduce((sum, l) => sum + Number(l.count || 0), 0);
-  };
-
-  return (
-    <CardSpotlight className="panel" style={{ padding: "20px", marginTop: "18px", width: "100%" }}>
-      <div className="section-head" style={{ marginBottom: "16px" }}>
-        <div>
-          <h2 style={{ fontSize: "16px", fontWeight: "800", margin: 0 }}>⚔️ Head-to-Head Duels</h2>
-          <p className="muted" style={{ fontSize: "12px", margin: "4px 0 0 0" }}>Direct matchups between every pair of contestants across key battle categories.</p>
-        </div>
-        <Swords size={18} style={{ color: "#ef4444" }} />
-      </div>
-
-      <div style={{ display: "grid", gap: "14px" }}>
-        {pairs.map(([a, b]) => {
-          const aSolves = a.totalSolved || 0;
-          const bSolves = b.totalSolved || 0;
-          const aStreak = a.streak || 0;
-          const bStreak = b.streak || 0;
-          const aWeek = getWeekSolves(a);
-          const bWeek = getWeekSolves(b);
-
-          // Score categories: total, streak, weekly
-          let aWins = 0, bWins = 0;
-          if (aSolves > bSolves) aWins++; else if (bSolves > aSolves) bWins++;
-          if (aStreak > bStreak) aWins++; else if (bStreak > aStreak) bWins++;
-          if (aWeek > bWeek) aWins++; else if (bWeek > aWeek) bWins++;
-
-          const winner = aWins > bWins ? a : bWins > aWins ? b : null;
-
-          return (
-            <div key={`${a.id}-${b.id}`} style={{ border: "1px solid var(--line)", borderRadius: "16px", background: "rgba(2, 6, 23, 0.35)", padding: "16px", overflow: "hidden" }}>
-              {/* Header with names */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span className="mini-avatar" style={{ "--tag": a.color, width: "28px", height: "28px", fontSize: "11px" }}>{a.initials}</span>
-                  <b style={{ color: a.color, fontSize: "14px" }}>{a.name}</b>
-                </div>
-                <span style={{ fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em" }}>vs</span>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <b style={{ color: b.color, fontSize: "14px" }}>{b.name}</b>
-                  <span className="mini-avatar" style={{ "--tag": b.color, width: "28px", height: "28px", fontSize: "11px" }}>{b.initials}</span>
-                </div>
-              </div>
-
-              {/* Category bars */}
-              <div style={{ display: "grid", gap: "10px" }}>
-                {[
-                  { label: "Total Solved", aVal: aSolves, bVal: bSolves },
-                  { label: "Current Streak", aVal: aStreak, bVal: bStreak },
-                  { label: "This Week", aVal: aWeek, bVal: bWeek }
-                ].map(({ label, aVal, bVal }) => {
-                  const max = Math.max(aVal, bVal, 1);
-                  const aIsAhead = aVal > bVal;
-                  const bIsAhead = bVal > aVal;
-                  return (
-                    <div key={label}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginBottom: "4px" }}>
-                        <span style={{ color: aIsAhead ? a.color : "#94a3b8", fontWeight: aIsAhead ? "700" : "400" }}>{aVal}</span>
-                        <span className="muted" style={{ fontWeight: "600" }}>{label}</span>
-                        <span style={{ color: bIsAhead ? b.color : "#94a3b8", fontWeight: bIsAhead ? "700" : "400" }}>{bVal}</span>
-                      </div>
-                      <div style={{ display: "flex", gap: "3px", height: "8px" }}>
-                        <div style={{ flex: 1, display: "flex", justifyContent: "flex-end" }}>
-                          <div style={{ height: "100%", width: `${(aVal / max) * 100}%`, background: aIsAhead ? a.color : "rgba(148,163,184,0.25)", borderRadius: "99px 0 0 99px", transition: "width 0.8s ease" }} />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ height: "100%", width: `${(bVal / max) * 100}%`, background: bIsAhead ? b.color : "rgba(148,163,184,0.25)", borderRadius: "0 99px 99px 0", transition: "width 0.8s ease" }} />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Winner badge */}
-              <div style={{ marginTop: "12px", textAlign: "center", fontSize: "12px" }}>
-                {winner ? (
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 12px", background: `${winner.color}15`, border: `1px solid ${winner.color}40`, borderRadius: "99px", fontWeight: "700", color: winner.color }}>
-                    <Trophy size={12} /> {winner.name} leads {aWins > bWins ? aWins : bWins}–{aWins > bWins ? bWins : aWins}
-                  </span>
-                ) : (
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 12px", background: "rgba(148,163,184,0.08)", border: "1px solid rgba(148,163,184,0.2)", borderRadius: "99px", fontWeight: "700", color: "#94a3b8" }}>
-                    ⚖️ Dead Even
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </CardSpotlight>
-  );
-}
 
 /* ── Consistency Scoreboard ── */
 function ConsistencyScoreboard({ friends, logs, startDate }) {
   const results = friends.map((f) => {
-    const start = new Date(f.challengeStartDate || startDate || "2026-05-20");
+    const parts = (f.challengeStartDate || startDate || "2026-05-20").split("-");
+    const start = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
     start.setHours(0, 0, 0, 0);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -453,7 +349,7 @@ function ConsistencyScoreboard({ friends, logs, startDate }) {
     for (let d = 0; d < totalDays; d++) {
       const date = new Date(start);
       date.setDate(date.getDate() + d);
-      const key = date.toISOString().slice(0, 10);
+      const key = dateKey(date);
       if ((dayMap[key] || 0) >= dailyTarget) metDays++;
     }
 
@@ -470,10 +366,12 @@ function ConsistencyScoreboard({ friends, logs, startDate }) {
     <CardSpotlight className="panel" style={{ padding: "20px", marginTop: "18px", width: "100%" }}>
       <div className="section-head" style={{ marginBottom: "16px" }}>
         <div>
-          <h2 style={{ fontSize: "16px", fontWeight: "800", margin: 0 }}>📊 Consistency Scoreboard</h2>
+          <h2 style={{ fontSize: "16px", fontWeight: "800", margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
+            <BarChart3 size={18} style={{ color: "#22c55e" }} />
+            Consistency Scoreboard
+          </h2>
           <p className="muted" style={{ fontSize: "12px", margin: "4px 0 0 0" }}>Percentage of days each contestant met their daily target. Higher consistency = stronger discipline.</p>
         </div>
-        <BarChart3 size={18} style={{ color: "#22c55e" }} />
       </div>
 
       <div style={{ display: "grid", gap: "14px" }}>
@@ -542,13 +440,13 @@ function ComebackTracker({ friends, startDate }) {
             <div key={f.id} style={{ padding: "14px", border: `1px solid ${isLeader ? f.color + "40" : "var(--line)"}`, borderRadius: "14px", background: isLeader ? `${f.color}08` : "rgba(2, 6, 23, 0.35)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  {isLeader && <span style={{ fontSize: "14px" }}>👑</span>}
+                  {isLeader && <Crown size={14} style={{ color: "#fbbf24" }} />}
                   <span className="mini-avatar" style={{ "--tag": f.color, width: "24px", height: "24px", fontSize: "11px" }}>{f.initials}</span>
                   <b style={{ color: f.color, fontSize: "13px" }}>{f.name}</b>
                 </div>
                 <div style={{ display: "flex", gap: "12px", fontSize: "12px", alignItems: "center" }}>
                   {isLeader ? (
-                    <span style={{ color: f.color, fontWeight: "700" }}>🏆 Leading with {solved} solved</span>
+                    <span style={{ color: f.color, fontWeight: "700", display: "flex", alignItems: "center", gap: "4px" }}><Trophy size={14} /> Leading with {solved} solved</span>
                   ) : (
                     <>
                       <span className="muted">{solved} solved</span>
@@ -563,10 +461,10 @@ function ComebackTracker({ friends, startDate }) {
                   <span>Pace: <b style={{ color: f.color }}>{dailyPace.toFixed(1)}/d</b> vs Leader: <b style={{ color: leader.color }}>{leaderPace.toFixed(1)}/d</b></span>
                   <span style={{ fontWeight: "700", color: dailyPace > leaderPace ? "#22c55e" : "#f59e0b" }}>
                     {dailyPace > leaderPace
-                      ? `🔥 Catch up in ~${catchUpDays}d`
+                      ? `Catch up in ~${catchUpDays}d`
                       : dailyPace === leaderPace
-                        ? "→ Matching pace"
-                        : "📉 Falling further behind"}
+                        ? "Matching pace"
+                        : "Falling further behind"}
                   </span>
                 </div>
               )}
@@ -610,49 +508,99 @@ function WhoIsWinningBanner({ friends, logs, startDate }) {
   });
   const byPace = [...paceData].sort((a, b) => b.dailyPace - a.dailyPace);
 
-  // Calculate overall score: 3pt for 1st, 2pt for 2nd, 1pt for 3rd in each category
-  const scores = {};
-  friends.forEach((f) => { scores[f.id] = { friend: f, pts: 0, golds: 0 }; });
+  const getConsistencyMetrics = (f) => {
+    const parts = (f.challengeStartDate || startDate || "2026-05-20").split("-");
+    const start = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    start.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const totalDays = Math.max(1, Math.ceil((today - start) / (1000 * 60 * 60 * 24)));
 
-  [byTotal, byStreak, byWeek, byPace].forEach((ranking) => {
-    ranking.forEach((f, idx) => {
-      const pts = Math.max(0, friends.length - idx);
-      scores[f.id].pts += pts;
-      if (idx === 0) scores[f.id].golds++;
+    const dailyTarget = f.dailyGoal || 2;
+    const friendLogs = logs.filter((l) => l.user_id === f.id);
+
+    const dayMap = {};
+    friendLogs.forEach((l) => {
+      const key = l.log_date?.slice(0, 10);
+      if (key) dayMap[key] = (dayMap[key] || 0) + Number(l.count || 0);
     });
+
+    let metDays = 0;
+    for (let d = 0; d < totalDays; d++) {
+      const date = new Date(start);
+      date.setDate(date.getDate() + d);
+      const key = dateKey(date);
+      if ((dayMap[key] || 0) >= dailyTarget) metDays++;
+    }
+
+    const pct = Math.round((metDays / totalDays) * 100);
+    return { pct, metDays, totalDays };
+  };
+
+  const overallScores = friends.map((f) => {
+    const easyCount = Number(f.easy) || 0;
+    const mediumCount = Number(f.medium) || 0;
+    const hardCount = Number(f.hard) || 0;
+
+    const problemPts = easyCount * 1 + mediumCount * 3 + hardCount * 6;
+    const streakPts = (f.streak || 0) * 5;
+    const { pct: consistencyPct } = getConsistencyMetrics(f);
+    const consistencyPts = consistencyPct;
+    const weekSolves = getWeekSolves(f);
+    const weeklyPts = weekSolves * 2;
+
+    const totalPts = problemPts + streakPts + consistencyPts + weeklyPts;
+
+    return {
+      friend: f,
+      pts: totalPts,
+      breakdown: {
+        problems: problemPts,
+        streak: streakPts,
+        consistency: consistencyPts,
+        weekly: weeklyPts
+      },
+      golds: (byTotal[0]?.id === f.id ? 1 : 0) + 
+             (byStreak[0]?.id === f.id ? 1 : 0) + 
+             (byWeek[0]?.id === f.id ? 1 : 0) + 
+             (byPace[0]?.id === f.id ? 1 : 0)
+    };
   });
 
-  const overallRanking = Object.values(scores).sort((a, b) => b.pts - a.pts || b.golds - a.golds);
+  const overallRanking = overallScores.sort((a, b) => b.pts - a.pts || b.golds - a.golds);
   const mvp = overallRanking[0];
 
   const categories = [
-    { label: "Total Solved", icon: "🏆", leader: byTotal[0], value: `${byTotal[0]?.totalSolved || 0}`, color: "#fbbf24" },
-    { label: "Best Streak", icon: "🔥", leader: byStreak[0], value: `${byStreak[0]?.streak || 0}d`, color: "#f97316" },
-    { label: "Weekly Sprint", icon: "⚡", leader: byWeek[0], value: `${byWeek[0]?.weekSolves || 0}`, color: "#a78bfa" },
-    { label: "Pace Leader", icon: "🚀", leader: byPace[0], value: `${byPace[0]?.dailyPace?.toFixed(1) || 0}/d`, color: "#38bdf8" }
+    { label: "Total Solved", icon: <Award size={16} />, leader: byTotal[0], value: `${byTotal[0]?.totalSolved || 0}`, color: "#fbbf24" },
+    { label: "Best Streak", icon: <Flame size={16} />, leader: byStreak[0], value: `${byStreak[0]?.streak || 0}d`, color: "#f97316" },
+    { label: "Weekly Sprint", icon: <Zap size={16} />, leader: byWeek[0], value: `${byWeek[0]?.weekSolves || 0}`, color: "#a78bfa" },
+    { label: "Pace Leader", icon: <Rocket size={16} />, leader: byPace[0], value: `${byPace[0]?.dailyPace?.toFixed(1) || 0}/d`, color: "#38bdf8" }
   ];
 
   return (
     <CardSpotlight className="panel" style={{ padding: "24px", marginTop: "18px", width: "100%", background: "linear-gradient(135deg, rgba(251, 191, 36, 0.04), rgba(167, 139, 250, 0.04))" }}>
-      <div style={{ textAlign: "center", marginBottom: "20px" }}>
-        <h2 style={{ fontSize: "20px", fontWeight: "900", margin: "0 0 4px 0" }}>🏅 Who's Winning?</h2>
-        <p className="muted" style={{ fontSize: "12px", margin: 0 }}>Overall competition standings across all categories</p>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "20px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "center" }}>
+          <Trophy size={20} style={{ color: "#fbbf24" }} />
+          <h2 style={{ fontSize: "20px", fontWeight: "900", margin: 0 }}>Who's Winning?</h2>
+        </div>
+        <p className="muted" style={{ fontSize: "12px", marginTop: "4px", marginBottom: 0 }}>Overall competition standings across all categories</p>
       </div>
 
       {/* MVP Banner */}
       {mvp && (
-        <div style={{ textAlign: "center", marginBottom: "20px", padding: "16px", background: `${mvp.friend.color}10`, border: `2px solid ${mvp.friend.color}40`, borderRadius: "16px" }}>
-          <div style={{ fontSize: "32px", marginBottom: "4px" }}>👑</div>
+        <div style={{ textAlign: "center", marginBottom: "20px", padding: "16px", background: `${mvp.friend.color}10`, border: `2px solid ${mvp.friend.color}40`, borderRadius: "16px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <Crown size={32} style={{ color: "#fbbf24", marginBottom: "6px" }} />
           <div style={{ fontSize: "14px", fontWeight: "900", color: mvp.friend.color }}>{mvp.friend.name}</div>
-          <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "2px" }}>Current MVP • {mvp.pts} pts • {mvp.golds} gold{mvp.golds !== 1 ? "s" : ""}</div>
+          <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "2px" }}>Current MVP • {mvp.pts} pts • {mvp.golds} category win{mvp.golds !== 1 ? "s" : ""}</div>
         </div>
       )}
 
       {/* Category leaders */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "10px", marginBottom: "20px" }}>
         {categories.map(({ label, icon, leader, value, color }) => (
-          <div key={label} style={{ textAlign: "center", padding: "12px 8px", border: "1px solid var(--line)", borderRadius: "12px", background: "rgba(2, 6, 23, 0.35)" }}>
-            <div style={{ fontSize: "20px", marginBottom: "4px" }}>{icon}</div>
+          <div key={label} style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 8px", border: "1px solid var(--line)", borderRadius: "12px", background: "rgba(2, 6, 23, 0.35)" }}>
+            <div style={{ color, marginBottom: "4px" }}>{icon}</div>
             <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "4px" }}>{label}</div>
             <div style={{ fontSize: "13px", fontWeight: "800", color: leader?.color || "#fff" }}>{leader?.name || "—"}</div>
             <div style={{ fontSize: "11px", color, fontFamily: "Geist Mono, monospace", fontWeight: "700" }}>{value}</div>
@@ -663,14 +611,21 @@ function WhoIsWinningBanner({ friends, logs, startDate }) {
       {/* Points table */}
       <div style={{ border: "1px solid var(--line)", borderRadius: "12px", overflow: "hidden" }}>
         <div style={{ display: "grid", gridTemplateColumns: "40px 1fr 60px 50px", padding: "8px 14px", fontSize: "10px", fontWeight: "700", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid var(--line)", background: "rgba(2, 6, 23, 0.5)" }}>
-          <span>#</span><span>Contestant</span><span style={{ textAlign: "right" }}>Points</span><span style={{ textAlign: "right" }}>Golds</span>
+          <span>#</span><span>Contestant</span><span style={{ textAlign: "right" }}>Points</span><span style={{ textAlign: "right" }}>Wins</span>
         </div>
         {overallRanking.map((entry, idx) => (
-          <div key={entry.friend.id} style={{ display: "grid", gridTemplateColumns: "40px 1fr 60px 50px", padding: "10px 14px", fontSize: "12px", alignItems: "center", borderBottom: idx < overallRanking.length - 1 ? "1px solid var(--line)" : "none", background: idx === 0 ? `${entry.friend.color}08` : "transparent" }}>
-            <span style={{ fontWeight: "900", color: idx === 0 ? "#fbbf24" : idx === 1 ? "#94a3b8" : idx === 2 ? "#cd7f32" : "#475569", fontSize: "14px" }}>{idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`}</span>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span className="mini-avatar" style={{ "--tag": entry.friend.color, width: "22px", height: "22px", fontSize: "10px" }}>{entry.friend.initials}</span>
-              <b style={{ color: entry.friend.color }}>{entry.friend.name}</b>
+          <div key={entry.friend.id} style={{ display: "grid", gridTemplateColumns: "40px 1fr 80px 50px", padding: "10px 14px", fontSize: "12px", alignItems: "center", borderBottom: idx < overallRanking.length - 1 ? "1px solid var(--line)" : "none", background: idx === 0 ? `${entry.friend.color}08` : "transparent" }}>
+            <span style={{ fontWeight: "900", color: idx === 0 ? "#fbbf24" : idx === 1 ? "#94a3b8" : idx === 2 ? "#cd7f32" : "#475569", fontSize: "13px", fontFamily: "Geist Mono, monospace" }}>
+              #{idx + 1}
+            </span>
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span className="mini-avatar" style={{ "--tag": entry.friend.color, width: "22px", height: "22px", fontSize: "10px" }}>{entry.friend.initials}</span>
+                <b style={{ color: entry.friend.color }}>{entry.friend.name}</b>
+              </div>
+              <span style={{ fontSize: "9px", color: "#64748b", paddingLeft: "30px" }}>
+                Diff: {entry.breakdown.problems} • Streak: {entry.breakdown.streak} • Const: {entry.breakdown.consistency} • Wk: {entry.breakdown.weekly}
+              </span>
             </div>
             <span style={{ textAlign: "right", fontFamily: "Geist Mono, monospace", fontWeight: "700", color: idx === 0 ? entry.friend.color : "#94a3b8" }}>{entry.pts}</span>
             <span style={{ textAlign: "right", fontFamily: "Geist Mono, monospace", fontWeight: "700", color: "#fbbf24" }}>{entry.golds}</span>
@@ -1010,7 +965,7 @@ function WeeklySummaryCard({ friend, logs }) {
     const offset = i - (daysPassedThisWeek - 1);
     const d = new Date(today);
     d.setDate(today.getDate() + offset);
-    return d.toISOString().slice(0, 10);
+    return dateKey(d);
   });
 
   const friendLogs = logs.filter((log) => log.user_id === friend.id);
@@ -1290,7 +1245,8 @@ function groupHeatmap(logs, days = 365) {
 }
 
 function calculateFines(friends, logs, finePerMiss = 5, startDateStr = "2026-05-20") {
-  const start = new Date(startDateStr);
+  const parts = startDateStr.split("-");
+  const start = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
   start.setHours(0, 0, 0, 0);
 
   const today = new Date();
@@ -1299,7 +1255,7 @@ function calculateFines(friends, logs, finePerMiss = 5, startDateStr = "2026-05-
   const completedDates = [];
   let current = new Date(start);
   while (current < today) {
-    completedDates.push(current.toISOString().slice(0, 10));
+    completedDates.push(dateKey(current));
     current.setDate(current.getDate() + 1);
   }
 
@@ -2794,9 +2750,6 @@ function App() {
               {/* Competition & Pace Leaderboard - public page only */}
               <CompetitionPacePanel friends={hydratedStats} logs={logs} startDate={settings.startDate} />
 
-              {/* Head-to-Head Duel Cards - public page only */}
-              <HeadToHeadDuels friends={hydratedStats} logs={logs} startDate={settings.startDate} />
-
               {/* Consistency Scoreboard - public page only */}
               <ConsistencyScoreboard friends={hydratedStats} logs={logs} startDate={settings.startDate} />
 
@@ -2811,6 +2764,9 @@ function App() {
 
               {/* All contestants heatmaps displayed together for public view */}
               <Heatmap friends={hydratedStats} daysToShow={daysToShow} />
+
+              {/* General charts analytics shown on public screen */}
+              <Analytics friends={hydratedStats} daysToShow={daysToShow} />
             </>
           )}
 
