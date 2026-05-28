@@ -1244,7 +1244,7 @@ function groupHeatmap(logs, days = 365) {
   };
 }
 
-function calculateFines(friends, logs, finePerMiss = 5, startDateStr = "2026-05-20") {
+function calculateFines(friends, logs, finePerMiss = 5, startDateStr = "2026-05-20", defaultDailyTarget = 2) {
   const parts = startDateStr.split("-");
   const start = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
   start.setHours(0, 0, 0, 0);
@@ -1267,7 +1267,7 @@ function calculateFines(friends, logs, finePerMiss = 5, startDateStr = "2026-05-
     });
 
     let missedDays = 0;
-    const dailyTarget = f.dailyGoal || 2;
+    const dailyTarget = f.dailyGoal || defaultDailyTarget;
 
     completedDates.forEach((dateStr) => {
       const solved = heatmap[dateStr] || 0;
@@ -1412,8 +1412,8 @@ function MoneyBasket({ friends, logs, isAuth, isAdmin, toast, settings: propSett
   };
 
   const { totalPool, breakdown } = useMemo(() => {
-    return calculateFines(friends, logs, Number(settings.finePerMiss) || 5, settings.startDate);
-  }, [friends, logs, settings.finePerMiss, settings.startDate]);
+    return calculateFines(friends, logs, Number(settings.finePerMiss) || 5, settings.startDate, Number(settings.defaultDailyTarget) || 2);
+  }, [friends, logs, settings.finePerMiss, settings.startDate, settings.defaultDailyTarget]);
 
   const adjustedBreakdown = useMemo(() => {
     return breakdown.map((item) => {
@@ -1483,6 +1483,16 @@ function MoneyBasket({ friends, logs, isAuth, isAdmin, toast, settings: propSett
                 value={settings.currency}
                 onChange={(e) => updateSettings({ currency: e.target.value })}
                 placeholder="$"
+                style={{ marginTop: "4px" }}
+              />
+            </label>
+            <label style={{ fontSize: "12px" }}>
+              Base Daily Target
+              <input
+                type="number"
+                min="1"
+                value={settings.defaultDailyTarget || 2}
+                onChange={(e) => updateSettings({ defaultDailyTarget: e.target.value })}
                 style={{ marginTop: "4px" }}
               />
             </label>
@@ -2311,7 +2321,8 @@ function AdminDashboard({ friends, reloadFriends, sharedGoals, addSharedGoal, up
     return loadJson("meow:fine-settings:v1", {
       finePerMiss: 5,
       startDate: "2026-05-20",
-      currency: "$"
+      currency: "$",
+      defaultDailyTarget: 2
     });
   });
 
@@ -2452,6 +2463,15 @@ function AdminDashboard({ friends, reloadFriends, sharedGoals, addSharedGoal, up
               value={settings.currency}
               onChange={(e) => updateSettings({ currency: e.target.value })}
               placeholder="$"
+            />
+          </label>
+          <label style={{ fontSize: "12px", display: "grid", gap: "6px" }}>
+            Base Daily Target
+            <input
+              type="number"
+              min="1"
+              value={settings.defaultDailyTarget || 2}
+              onChange={(e) => updateSettings({ defaultDailyTarget: e.target.value })}
             />
           </label>
         </div>

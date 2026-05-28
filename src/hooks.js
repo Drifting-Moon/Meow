@@ -322,7 +322,8 @@ export function useGlobalSettings() {
   const [settings, setSettings] = useState({
     finePerMiss: 5,
     startDate: "2026-05-20",
-    currency: "$"
+    currency: "$",
+    defaultDailyTarget: 2
   });
   const [finesPaid, setFinesPaid] = useState({});
   const [offline, setOffline] = useState(false);
