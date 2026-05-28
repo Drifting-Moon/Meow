@@ -914,37 +914,88 @@ function LoginModal({ open, onClose, auth }) {
   );
 }
 
-function TodayStrip({ friends, realtimeStatus }) {
-  const leader = [...friends].sort((a, b) => b.todaySolved - a.todaySolved)[0];
+function TodayStrip({ friends, isAuth }) {
+  if (isAuth) {
+    const you = friends.find((f) => f.isYou);
+    if (!you) return null;
+    return (
+      <section className="today-strip">
+        <div className="today-head"><strong>Your Total Solves</strong><span>Keep grinding!</span></div>
+        <div className="today-grid" style={{ gridTemplateColumns: "minmax(0, 400px)" }}>
+          <CardSpotlight className="today-card you-card" style={{ "--you": you.color }}>
+            <div className="friend-line"><span className="mini-avatar" style={{ "--tag": you.color }}>{you.initials}</span><b>You</b></div>
+            <div className="today-number">{you.loading ? <Skeleton className="skeleton-small" /> : <AnimatedCounter value={you.totalSolved} />}</div>
+            <p className="muted">{you.totalSolved} total problems solved</p>
+          </CardSpotlight>
+        </div>
+      </section>
+    );
+  }
+
+  const leader = [...friends].sort((a, b) => b.totalSolved - a.totalSolved)[0];
   return <section className="today-strip">
-    <div className="today-head"><strong>Today's Solves</strong><span>Manual logs update in realtime</span></div>
+    <div className="today-head"><strong>Total Solves</strong><span>Live leaderboard</span></div>
     <div className="today-grid">
-      {friends.map((f) => <CardSpotlight key={f.id} className={`today-card ${leader?.id === f.id && f.todaySolved > 0 ? "leading" : ""} ${f.isYou ? "you-card" : ""}`} style={{ "--you": f.color }}>
-        <div className="friend-line"><span className="mini-avatar" style={{ "--tag": f.color }}>{f.initials}</span><b>{f.isYou ? "You" : f.name}</b>{leader?.id === f.id && f.todaySolved > 0 && <Flame className="fire-icon" />}</div>
-        <div className="today-number">{f.loading ? <Skeleton className="skeleton-small" /> : <AnimatedCounter value={f.todaySolved} />}</div>
-        <p className="muted">{f.todaySolved} problems solved today</p>
+      {friends.map((f) => <CardSpotlight key={f.id} className={`today-card ${leader?.id === f.id && f.totalSolved > 0 ? "leading" : ""}`} style={{ "--you": f.color }}>
+        <div className="friend-line"><span className="mini-avatar" style={{ "--tag": f.color }}>{f.initials}</span><b>{f.name}</b>{leader?.id === f.id && f.totalSolved > 0 && <Flame className="fire-icon" />}</div>
+        <div className="today-number">{f.loading ? <Skeleton className="skeleton-small" /> : <AnimatedCounter value={f.totalSolved} />}</div>
+        <p className="muted">{f.totalSolved} total problems solved</p>
       </CardSpotlight>)}
     </div>
   </section>;
 }
 
-function Hero({ friends, activeId, setActiveId }) {
+function Hero({ friends, activeId, setActiveId, isAuth }) {
   const ranked = rankFriends(friends);
-  return <WavyBackground>
-    <section className="hero">
-      <div>
-        <div className="eyebrow"><Sparkles size={15} /> Shared dashboard</div>
-        <h1><TypewriterEffect text="Who's grinding hardest?" /></h1>
+  const leader = ranked[0];
+  const second = ranked[1];
+  const leadDiff = leader && second ? leader.totalSolved - second.totalSolved : 0;
+  
+  if (isAuth) {
+    return (
+      <WavyBackground>
+        <section className="hero">
+          <div>
+            <div className="eyebrow"><Sparkles size={15} /> Shared dashboard</div>
+            <h1><TypewriterEffect text="Who's grinding hardest?" /></h1>
+          </div>
+        </section>
+        <div className="leader-strip">
+          <div className="rank-bars">
+            {ranked.map((f, i) => <button key={f.id} onClick={() => setActiveId(f.id)} className="rank-row">
+              <span>#{i + 1}</span><b style={{ color: f.color }}>{f.isYou ? "You" : f.name}</b><ProgressBar value={(f.totalSolved / Math.max(1, ranked[0]?.totalSolved || 1)) * 100} color={f.color} /><em>{f.loading ? "..." : f.totalSolved}</em>
+            </button>)}
+          </div>
+        </div>
+      </WavyBackground>
+    );
+  }
+
+  if (!leader) return null;
+
+  return (
+    <div style={{ padding: "40px 20px", background: "linear-gradient(180deg, rgba(20,24,21,0.8) 0%, rgba(17,20,18,0) 100%)", borderBottom: "1px solid rgba(255,255,255,0.05)", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
+      <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "rgba(245, 158, 11, 0.15)", color: "#f59e0b", padding: "6px 14px", borderRadius: "20px", fontSize: "12px", fontWeight: "700", letterSpacing: "1px", textTransform: "uppercase" }}>
+        <Crown size={14} /> Current Leader
       </div>
-    </section>
-    <div className="leader-strip">
-      <div className="rank-bars">
-        {ranked.map((f, i) => <button key={f.id} onClick={() => setActiveId(f.id)} className="rank-row">
-          <span>#{i + 1}</span><b style={{ color: f.color }}>{f.isYou ? "You" : f.name}</b><ProgressBar value={(f.totalSolved / Math.max(1, ranked[0]?.totalSolved || 1)) * 100} color={f.color} /><em>{f.loading ? "..." : f.totalSolved}</em>
-        </button>)}
+      <h1 style={{ fontSize: "64px", margin: "0", fontWeight: "900", letterSpacing: "-2px", color: leader.color, textShadow: `0 0 40px ${leader.color}66` }}>
+        {leader.name}
+      </h1>
+      <div style={{ display: "flex", gap: "24px", alignItems: "center", justifyContent: "center", flexWrap: "wrap" }}>
+        <div style={{ fontSize: "24px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
+          {leader.totalSolved} <span className="muted" style={{ fontSize: "16px", fontWeight: "500" }}>solved</span>
+        </div>
+        {leadDiff > 0 && (
+          <div style={{ fontSize: "18px", fontWeight: "700", color: "#22c55e", background: "rgba(34, 197, 94, 0.1)", padding: "4px 12px", borderRadius: "8px" }}>
+            +{leadDiff} ahead of 2nd
+          </div>
+        )}
       </div>
+      <p className="muted" style={{ fontSize: "14px", maxWidth: "400px", margin: "8px auto 0" }}>
+        Maintaining a {leader.streak} day streak. 
+      </p>
     </div>
-  </WavyBackground>;
+  );
 }
 
 function StatCard({ icon: Icon, label, value, suffix = "", accent, detail, loading, owner, source, className = "" }) {
@@ -1893,18 +1944,18 @@ function SharedGoalsPanel({ sharedGoals, addSharedGoal, updateSharedGoal, delete
   </section>;
 }
 
-function ActivityFeed({ logs, friends, toast }) {
+function ActivityFeed({ logs, friends, handleCheer }) {
   const byId = Object.fromEntries(friends.map((friend) => [friend.id, friend]));
-  const recent = [...logs].sort((a, b) => new Date(b.created_at || b.log_date) - new Date(a.created_at || a.log_date)).slice(0, 8);
+  const recent = [...logs].sort((a, b) => new Date(b.created_at || b.log_date) - new Date(a.created_at || a.log_date)).slice(0, 30);
   return <section className="panel activity-feed">
     <div className="section-head"><div><h2>Activity Feed</h2><p>Recent check-ins, notes, and quick encouragement.</p></div><Check /></div>
-    {recent.length ? <div className="feed-list">
+    {recent.length ? <div className="feed-list" style={{ maxHeight: "320px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "10px", paddingRight: "4px" }}>
       {recent.map((log) => {
         const friend = byId[log.user_id] || {};
-        return <div className="feed-item" key={log.id}>
-          <span className="mini-avatar" style={{ "--tag": friend.color || COLORS[0] }}>{friend.initials || "?"}</span>
-          <div><b>{friend.id ? friend.isYou ? "You" : friend.name : "Friend"} logged {log.count} problems</b><small>{formatDay(log.log_date)} • E{log.difficulty_easy} M{log.difficulty_medium} H{log.difficulty_hard}</small>{log.note && <p>{log.note}</p>}</div>
-          <button className="secondary mini-retry" onClick={() => toast(`Cheered ${friend.name || "friend"} on.`)}><Sparkles size={13} /> Cheer</button>
+        return <div className="feed-item" key={log.id} style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: "12px", alignItems: "center", padding: "12px", borderRadius: "12px", background: "rgba(0,0,0,0.2)", border: "1px solid var(--line)" }}>
+          <span className="mini-avatar" style={{ "--tag": friend.color || COLORS[0], width: "32px", height: "32px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "8px", background: "var(--tag)", color: "#000", fontWeight: "700" }}>{friend.initials || "?"}</span>
+          <div style={{ display: "grid", gap: "2px" }}><b style={{ fontSize: "13px" }}>{friend.id ? friend.isYou ? "You" : friend.name : "Friend"} logged {log.count} problems</b><small className="muted" style={{ fontSize: "11px" }}>{formatDay(log.log_date)} • E{log.difficulty_easy} M{log.difficulty_medium} H{log.difficulty_hard}</small>{log.note && <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "var(--text)" }}>{log.note}</p>}</div>
+          <button className="secondary mini-retry" style={{ padding: "4px 8px", fontSize: "11px", display: "flex", alignItems: "center", gap: "4px" }} onClick={() => handleCheer ? handleCheer(friend.name || "friend") : null}><Sparkles size={13} /> Cheer</button>
         </div>;
       })}
     </div> : <div className="empty-chart">No manual logs yet. Add one to start the shared feed.</div>}
@@ -2583,6 +2634,73 @@ function AdminDashboard({ friends, reloadFriends, sharedGoals, addSharedGoal, up
   );
 }
 
+function PersonalUrgencyCard({ friend, friends, logs, settings }) {
+  if (!friend || !friends) return null;
+  
+  const now = new Date();
+  const midnight = new Date(now);
+  midnight.setHours(24, 0, 0, 0);
+  const hoursLeft = Math.floor((midnight - now) / (1000 * 60 * 60));
+  
+  const today = dateKey(new Date());
+  // Need to calculate today's solves for current friend.
+  // We can just use `friend.todaySolved` which is already calculated in `hydratedStats`.
+  const solvesToday = friend.todaySolved || 0;
+  const target = friend.dailyTarget || settings?.defaultDailyTarget || 2;
+  const need = Math.max(0, target - solvesToday);
+
+  // Pace Gap calculations
+  const leader = [...friends].sort((a, b) => b.totalSolved - a.totalSolved)[0];
+  let paceMsg = "";
+  if (leader) {
+    if (leader.id === friend.id) {
+      const second = [...friends].sort((a, b) => b.totalSolved - a.totalSolved)[1];
+      const lead = second ? friend.totalSolved - second.totalSolved : 0;
+      paceMsg = lead > 0 ? `You are ${lead} solves ahead. Keep grinding to hold #1!` : `Tied for #1. Don't slip!`;
+    } else {
+      const gap = leader.totalSolved - friend.totalSolved;
+      paceMsg = `You need ${gap + 1} more solves to overtake ${leader.name} for #1!`;
+    }
+  }
+
+  return (
+    <div className="panel personal-urgency-card" style={{ 
+      background: `color-mix(in srgb, ${friend.color || '#10b981'}, transparent 88%)`,
+      borderColor: `color-mix(in srgb, ${friend.color || '#10b981'}, transparent 60%)`,
+      marginTop: '18px',
+      marginBottom: '18px',
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+      gap: '16px',
+      boxShadow: `0 8px 32px color-mix(in srgb, ${friend.color || '#10b981'}, transparent 90%)`
+    }}>
+      <div style={{ alignSelf: 'center' }}>
+        <div className="eyebrow" style={{ color: friend.color || '#10b981' }}>Personal Dashboard</div>
+        <h3 style={{ margin: '8px 0 0', fontSize: '24px', fontFamily: '"Bricolage Grotesque", Inter, sans-serif' }}>Welcome back, {friend.name}!</h3>
+        <p style={{ margin: '6px 0 0', fontSize: '13px', fontWeight: '700', color: leader?.id === friend.id ? '#10b981' : '#f43f5e' }}>{paceMsg}</p>
+      </div>
+      
+      {need > 0 ? (
+        <div style={{ display: 'flex', gap: '14px', alignItems: 'center', background: 'rgba(245, 158, 11, 0.1)', padding: '12px', borderRadius: '12px' }}>
+          <Flame size={32} style={{ color: '#f59e0b' }} />
+          <div>
+            <strong style={{ display: 'block', color: '#f59e0b', fontSize: '18px' }}>Urgent: {need} more to hit target!</strong>
+            <small className="muted">Your streak expires in {hoursLeft} hours.</small>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: '14px', alignItems: 'center', background: 'rgba(34, 197, 94, 0.1)', padding: '12px', borderRadius: '12px' }}>
+          <Check size={32} style={{ color: '#10b981' }} />
+          <div>
+            <strong style={{ display: 'block', color: '#10b981', fontSize: '18px' }}>Daily target reached!</strong>
+            <small className="muted">You secured your streak for today.</small>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function App() {
   const auth = useAuth();
   const { friends, reloadFriends, offline: friendsOffline } = useFriends(auth.session);
@@ -2608,6 +2726,40 @@ function App() {
     const rawDays = Math.max(30, diffDays + 14); // show at least 30 days, or oldest log date minus 14 days
     return Math.ceil(rawDays / 7) * 7; // Round to whole weeks
   }, [logs]);
+
+  const [cheerChannel, setCheerChannel] = useState(null);
+
+  useEffect(() => {
+    if (!auth.supabaseConfigured) return;
+    const channel = supabase.channel('cheers', {
+      config: { broadcast: { ack: false } },
+    })
+    .on('broadcast', { event: 'cheer' }, (payload) => {
+      if (payload.payload.from !== auth.user?.id) {
+        setToast(`✨ ${payload.payload.message}`);
+      }
+    })
+    .subscribe();
+
+    setCheerChannel(channel);
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [auth.supabaseConfigured, auth.user?.id]);
+
+  const handleCheer = (targetName) => {
+    const sender = auth.profile?.display_name ? auth.profile.display_name.replace(/\b\w/g, c => c.toUpperCase()) : "A Guest";
+    const msg = `${sender} cheered ${targetName} on!`;
+    if (cheerChannel) {
+      cheerChannel.send({
+        type: 'broadcast',
+        event: 'cheer',
+        payload: { message: msg, from: auth.user?.id },
+      });
+    }
+    setToast(`Cheered ${targetName} on!`);
+  };
 
   useEffect(() => {
     if (auth.user?.id) {
@@ -2759,62 +2911,59 @@ function App() {
         />
       ) : (
         <>
-          <TodayStrip friends={hydratedStats} realtimeStatus={realtimeStatus} />
-          <Hero friends={hydratedStats} activeId={activeId} setActiveId={setActiveId} />
+          <TodayStrip friends={hydratedStats} isAuth={Boolean(auth.session)} />
+          <Hero friends={hydratedStats} activeId={activeId} setActiveId={setActiveId} isAuth={Boolean(auth.session)} />
 
-          {!auth.session && (
+          {/* Inject Personal Urgency Card for logged in users directly below Hero */}
+          {auth.session && currentFriend && (
+            <PersonalUrgencyCard friend={currentFriend} friends={hydratedStats} logs={logs} settings={settings} />
+          )}
+
+          {/* Global Shared Dashboards (Always Visible) */}
+          {/* Goal Progress Bars (full width card) */}
+          <GoalProgressCard friends={hydratedStats} startDate={settings.startDate} />
+
+          {/* Competition & Pace Leaderboard */}
+          <CompetitionPacePanel friends={hydratedStats} logs={logs} startDate={settings.startDate} />
+
+          {/* Consistency Scoreboard and Comeback Tracker (Only visible when logged in) */}
+          {auth.session && (
             <>
-              {/* Goal Progress Bars (full width card) - public page only */}
-              <GoalProgressCard friends={hydratedStats} startDate={settings.startDate} />
-
-              {/* Competition & Pace Leaderboard - public page only */}
-              <CompetitionPacePanel friends={hydratedStats} logs={logs} startDate={settings.startDate} />
-
-              {/* Consistency Scoreboard - public page only */}
               <ConsistencyScoreboard friends={hydratedStats} logs={logs} startDate={settings.startDate} />
-
-              {/* Comeback Tracker - public page only */}
               <ComebackTracker friends={hydratedStats} startDate={settings.startDate} />
-
-              {/* Who's Winning Summary - public page only */}
-              <WhoIsWinningBanner friends={hydratedStats} logs={logs} startDate={settings.startDate} />
-
-              {/* Fines Basket Total Pool (Only pool card is shown when logged out) */}
-              <MoneyBasket friends={hydratedStats} logs={logs} isAuth={false} isAdmin={false} toast={toastNow} settings={settings} updateSettings={updateSettings} finesPaid={finesPaid} updateFinesPaid={updateFinesPaid} />
-
-              {/* All contestants heatmaps displayed together for public view */}
-              <Heatmap friends={hydratedStats} daysToShow={daysToShow} />
-
-              {/* General charts analytics shown on public screen */}
-              <Analytics friends={hydratedStats} daysToShow={daysToShow} />
             </>
           )}
 
+          {/* Who's Winning Summary */}
+          <WhoIsWinningBanner friends={hydratedStats} logs={logs} startDate={settings.startDate} />
+
+          {/* Shared Challenges (Visible to all, interactable if logged in) */}
+          <SharedGoalsPanel sharedGoals={sharedGoals} addSharedGoal={addSharedGoal} updateSharedGoal={updateSharedGoal} deleteSharedGoal={deleteSharedGoal} friends={hydratedStats} toast={toastNow} offline={sharedGoalsOffline} isAuth={Boolean(auth.session)} isAdmin={auth.isAdmin} />
+
+          {/* Fines Basket Total Pool (Visible to all) */}
+          <MoneyBasket friends={hydratedStats} logs={logs} isAuth={Boolean(auth.session)} isAdmin={auth.isAdmin} toast={toastNow} settings={settings} updateSettings={updateSettings} finesPaid={finesPaid} updateFinesPaid={updateFinesPaid} />
+
+          {/* All contestants heatmaps displayed together */}
+          <Heatmap friends={hydratedStats} daysToShow={daysToShow} />
+
+          {/* General charts analytics */}
+          <Analytics friends={hydratedStats} daysToShow={daysToShow} />
+
           {auth.session && (
             <>
-              {/* 1. Fine Money Basket (Common) */}
-              <MoneyBasket friends={hydratedStats} logs={logs} isAuth={Boolean(auth.session)} isAdmin={auth.isAdmin} toast={toastNow} settings={settings} updateSettings={updateSettings} finesPaid={finesPaid} updateFinesPaid={updateFinesPaid} />
+              {/* Activity Feed (Common) */}
+              <ActivityFeed logs={logs} friends={hydratedStats} handleCheer={handleCheer} />
 
-              {/* 2. Shared Challenges (Common) */}
-              <SharedGoalsPanel sharedGoals={sharedGoals} addSharedGoal={addSharedGoal} updateSharedGoal={updateSharedGoal} deleteSharedGoal={deleteSharedGoal} friends={hydratedStats} toast={toastNow} offline={sharedGoalsOffline} isAuth={Boolean(auth.session)} isAdmin={auth.isAdmin} />
-            </>
-          )}
-
-          {auth.session && (
-            <>
-              {/* 3. Activity Feed (Common) */}
-              <ActivityFeed logs={logs} friends={hydratedStats} toast={toastNow} />
-
-              {/* 4. Profiles Panel (Common) */}
+              {/* Profiles Panel (Common) */}
               <ProfilesPanel friends={hydratedStats} activeId={activeId} setActiveId={setActiveId} openSettings={() => setSettingsOpen(true)} />
 
-              {/* 5. Personal Bento Stats for Selected Player (Common) */}
+              {/* Personal Bento Stats for Selected Player */}
               {activeFriend && <PersonalStats friend={activeFriend} friends={hydratedStats} logs={logs} />}
 
-              {/* 7. Heatmap (Individual Selected Profile Only) */}
+              {/* Heatmap (Individual Selected Profile Only) */}
               {activeFriend && <Heatmap friends={hydratedStats} daysToShow={daysToShow} singleFriend={activeFriend} />}
 
-              {/* 8. Analytics Comparison Charts (Common) */}
+              {/* Analytics Comparison Charts */}
               {activeFriend && <Analytics friends={hydratedStats} daysToShow={daysToShow} />}
             </>
           )}
